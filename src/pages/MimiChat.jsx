@@ -226,6 +226,10 @@ const MimiChat = () => {
   const [chatHistory,   setChatHistory]   = useState([])
   const [lastQuestion,  setLastQuestion]  = useState('') // ← current question track
 
+  const videoRef        = useRef(null)
+  const canvasRef       = useRef(null)
+  const [webcamActive,  setWebcamActive] = useState(false)
+
   const pollingRef      = useRef(null)
   const facePollingRef  = useRef(null)
   const lastAnswerRef   = useRef('')
@@ -238,6 +242,31 @@ const MimiChat = () => {
 
   const generateSessionId = () =>
     `mimi-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+
+  // ── Webcam Management ─────────────────────────────────────────
+  const stopWebcam = useCallback(() => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const tracks = videoRef.current.srcObject.getTracks()
+      tracks.forEach(track => track.stop())
+      videoRef.current.srcObject = null
+    }
+    setWebcamActive(false)
+  }, [])
+
+  const startWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 640, height: 480 } 
+      })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        setWebcamActive(true)
+      }
+    } catch (err) {
+      console.error("Webcam error:", err)
+      alert("Please allow camera access for face detection.")
+    }
+  }
 
   // ── Face detection ───────────────────────────────────────────
   const startFaceDetection = useCallback(async () => {
@@ -252,25 +281,41 @@ const MimiChat = () => {
     lastActionRef.current  = ''
     setLastQuestion('')
 
-    try { await axios.get(API_ENDPOINTS.START_FACE_DETECT) }
-    catch (e) { console.error('Face detect start error:', e) }
+    await startWebcam()
 
-    if (facePollingRef.current) clearInterval(facePollingRef.current)
     facePollingRef.current = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current || !videoRef.current.srcObject) {
+        console.log("[FaceDetect] Skipping frame: webcam not ready");
+        return
+      }
+
       try {
-        const res  = await axios.get(API_ENDPOINTS.GET_STATUS)
+        const canvas = canvasRef.current
+        const video  = videoRef.current
+        canvas.width  = 320 // Small for faster upload
+        canvas.height = 240
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const base64 = canvas.toDataURL('image/jpeg', 0.7)
+
+        console.log("[FaceDetect] Sending frame to backend...");
+        const res  = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 })
         const data = res.data
+        
         if (data.person) {
+          console.log("[FaceDetect] RECOGNIZED:", data.person);
           const name = data.person.replace(/_/g, ' ').trim()
           clearInterval(facePollingRef.current)
           facePollingRef.current = null
-          await axios.get(API_ENDPOINTS.STOP_FACE_DETECT)
+          stopWebcam()
           setStudentName(name)
           startMimiSession(name)
+        } else {
+          console.log("[FaceDetect] No face recognized yet...");
         }
-      } catch (e) { console.error('Face poll error:', e) }
-    }, 500)
-  }, []) // eslint-disable-line
+      } catch (e) { console.error('[FaceDetect] Error during frame processing:', e) }
+    }, 2000) // Poll every 1s to be safe and reduce load
+  }, [stopWebcam]) // eslint-disable-line
 
   // ── Mimi session ─────────────────────────────────────────────
   const startMimiSession = useCallback(async (name) => {
@@ -281,66 +326,7 @@ const MimiChat = () => {
     catch (e) { console.error('Mimi session start error:', e) }
     startPolling(name, sid)
   }, []) // eslint-disable-line
-
-  // ── Polling ───────────────────────────────────────────────────
-  const startPolling = useCallback((name, sid) => {
-    if (pollingRef.current) clearInterval(pollingRef.current)
-
-    pollingRef.current = setInterval(async () => {
-      try {
-        const res = await axios.get(API_ENDPOINTS.GET_MIMI_STATUS)
-        const d   = res.data
-
-        // Speaking state track karo — reading book video ke liye
-        const action = d.action || 'idle'
-        if (action !== lastActionRef.current) {
-          lastActionRef.current = action
-          setIsSpeaking(action === 'speaking')
-
-          // Listening phase mein question capture karo
-          if (action === 'listening') {
-            setLastQuestion('')
-          }
-        }
-
-        if (!d.text || d.text === 'Thinking...') return
-        if (d.text === lastAnswerRef.current) return
-
-        lastAnswerRef.current = d.text
-        setMimiText(d.text)
-        setImageUrl(d.image_url || null)
-        setYtVideo(d.yt_video   || null)
-        setPlaying(false)
-        setIsSpeaking(true)
-
-        const newMsg = {
-          answer:    d.text,
-          image_url: d.image_url || '',
-          time:      new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        }
-        const updated = [...chatHistoryRef.current, newMsg]
-        setChatHistory(updated)
-        chatHistoryRef.current = updated
-
-        saveChatToDB(name, sid, updated)
-
-        if (d.action === 'playing_video' && d.yt_video) setPlaying(true)
-
-      } catch (e) { console.error('Mimi poll error:', e) }
-    }, 500)
-  }, []) // eslint-disable-line
-
-  // ── DB save ───────────────────────────────────────────────────
-  const saveChatToDB = async (name, sid, messages) => {
-    try {
-      await axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
-        student_name: name,
-        session_id:   sid,
-        messages:     messages,
-      })
-    } catch (e) { console.error('Chat save error:', e) }
-  }
-
+  
   // ── Stop session ──────────────────────────────────────────────
   const stopSession = useCallback(async () => {
     // Pehle intervals band karo
@@ -348,9 +334,9 @@ const MimiChat = () => {
     clearInterval(facePollingRef.current)
     pollingRef.current     = null
     facePollingRef.current = null
+    stopWebcam()
 
     try {
-      await axios.get(API_ENDPOINTS.STOP_FACE_DETECT)
       await axios.post(API_ENDPOINTS.MIMI_STOP_SESSION)
     } catch (e) {
       console.error('Stop error:', e)
@@ -358,7 +344,7 @@ const MimiChat = () => {
 
     setSessionState('stopped')
     setIsSpeaking(false)
-  }, [])
+  }, [stopWebcam])
 
   // ── Typewriter ────────────────────────────────────────────────
   useEffect(() => {
@@ -384,8 +370,9 @@ const MimiChat = () => {
     return () => {
       clearInterval(pollingRef.current)
       clearInterval(facePollingRef.current)
+      stopWebcam()
     }
-  }, [])
+  }, [stopWebcam])
 
   // ── Mimi ka sahi video choose karo ───────────────────────────
   const getMimiVideo = () => {
@@ -397,6 +384,9 @@ const MimiChat = () => {
   return (
     <div className="relative min-h-screen w-full bg-cover bg-center overflow-hidden"
       style={{ backgroundImage: `url(${bgImage})` }}>
+
+      {/* Hidden canvas for capturing frames */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
 
       {/* ── Top Bar ────────────────────────────────────────────── */}
       <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
@@ -436,26 +426,49 @@ const MimiChat = () => {
       <AnimatePresence>
         {sessionState === 'detecting' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
-            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }}
-              className="bg-white rounded-3xl px-12 py-10 text-center shadow-2xl max-w-md">
-              <motion.div animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 1.5, repeat: Infinity }}
-                className="text-7xl mb-4">📷</motion.div>
+            className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl max-w-lg w-full mx-4 border-4 border-purple-100">
+              
+              <div className="relative w-full aspect-video bg-gray-100 rounded-3xl overflow-hidden mb-6 shadow-inner border-2 border-purple-50">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover scale-x-[-1]" // Mirror effect
+                />
+                <div className="absolute inset-0 border-[3px] border-dashed border-purple-400/50 rounded-3xl pointer-events-none animate-pulse" />
+                {!webcamActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-50/80">
+                    <p className="text-purple-400 font-bold">Requesting camera access...</p>
+                  </div>
+                )}
+              </div>
+
               <h2 className="text-3xl font-black text-purple-700 mb-2">Who is there?</h2>
-              <p className="text-purple-500 text-lg">Stand in front of the camera...</p>
-              <div className="flex justify-center gap-2 mt-4">
+              <p className="text-purple-500 text-lg mb-6 tracking-wide">Align your face with the frame...</p>
+              
+              <div className="flex justify-center gap-3">
                 {[0, 1, 2].map(i => (
                   <motion.div key={i}
-                    animate={{ y: [0, -10, 0] }}
-                    transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }}
-                    className="w-3 h-3 bg-purple-400 rounded-full" />
+                    animate={{ y: [0, -10, 0], opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                    className="w-4 h-4 bg-purple-500 rounded-full shadow-sm" />
                 ))}
               </div>
+
+              <button 
+                onClick={stopSession}
+                className="mt-8 text-gray-400 hover:text-red-500 transition-colors text-sm font-bold uppercase tracking-widest"
+              >
+                Cancel
+              </button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
 
       {/* ── Session Stopped Screen ─────────────────────────────── */}
       <AnimatePresence>
