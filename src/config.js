@@ -19,7 +19,7 @@
 
 
 // src/config.js
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
+export const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const API_ENDPOINTS = {
   GET_STATUS:           `${API_BASE_URL}/get-status`,
@@ -33,6 +33,7 @@ export const API_ENDPOINTS = {
   GENERATE_QUESTIONS:   `${API_BASE_URL}/generate-activity-questions`,  // ← NEW: LLM questions for activities 9-12
   START_FACE_DETECT:    `${API_BASE_URL}/start-face-detect`,              // ← face detect only, no attendance
   STOP_FACE_DETECT:     `${API_BASE_URL}/stop-face-detect`,
+  PROCESS_FRAME:        `${API_BASE_URL}/process-frame`,                  // ← NEW: send frame for recognition
   REGISTER_FACE:       `${API_BASE_URL}/register-face`,        // ← NEW: save new student face
   GET_STUDENT_ID:       `${API_BASE_URL}/get-student-id-by-name`,  // ← YE ADD KARO
   MIMI_SAVE_CHAT:    `${API_BASE_URL}/api/mimi/save-chat`,
