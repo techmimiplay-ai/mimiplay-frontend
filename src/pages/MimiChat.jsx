@@ -314,7 +314,7 @@ const MimiChat = () => {
           console.log("[FaceDetect] No face recognized yet...");
         }
       } catch (e) { console.error('[FaceDetect] Error during frame processing:', e) }
-    }, 2000) // Poll every 1s to be safe and reduce load
+    }, 1000) // Poll every 1s to be safe and reduce load
   }, [stopWebcam]) // eslint-disable-line
 
   // ── Mimi session ─────────────────────────────────────────────
