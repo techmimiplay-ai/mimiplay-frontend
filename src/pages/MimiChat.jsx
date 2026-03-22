@@ -400,6 +400,7 @@ const MimiChat = () => {
       const res = await axios.post(endpoint, formData)
       if (endpoint === API_ENDPOINTS.MIMI_WAKE && res.data.wake) {
         console.log("[Audio] WAKE WORD DETECTED:", res.data.text)
+        setMimiText("Yes? I am here! Let me see who is there...")
         startFaceDetection()
       } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
          console.log("[Audio] TRANSCRIBED:", res.data.text)
@@ -622,7 +623,7 @@ const MimiChat = () => {
         <div className="flex-1 flex flex-col justify-center z-20 pr-6 pb-8 pl-4"
           style={{ maxHeight: '90vh', overflowY: 'auto' }}>
           <AnimatePresence>
-            {mimiText && sessionState === 'running' && (
+            {mimiText && (sessionState === 'running' || sessionState === 'detecting') && (
               <motion.div
                 key={mimiText}
                 initial={{ opacity: 0, x: 40, scale: 0.98 }}
