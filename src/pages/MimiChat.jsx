@@ -235,6 +235,8 @@ const MimiChat = () => {
   const lastAnswerRef   = useRef('')
   const lastActionRef   = useRef('')
   const chatHistoryRef  = useRef([])
+  const mediaRecorderRef = useRef(null)
+  const [isRecording, setIsRecording] = useState(false)
 
   useEffect(() => {
     chatHistoryRef.current = chatHistory
@@ -317,6 +319,24 @@ const MimiChat = () => {
     }, 1200) // Poll every 1s to be safe and reduce load
   }, [stopWebcam]) // eslint-disable-line
 
+  // ── Polling ──────────────────────────────────────────────────
+  const startPolling = useCallback((name, sid) => {
+    if (pollingRef.current) return
+    pollingRef.current = setInterval(async () => {
+      try {
+        const res = await axios.get(API_ENDPOINTS.GET_MIMI_STATUS)
+        const d = res.data
+        if (d.text && d.text !== "Thinking..." && d.text !== lastAnswerRef.current) {
+          setMimiText(d.text)
+          setImageUrl(d.image_url)
+          setYtVideo(d.yt_video)
+          lastAnswerRef.current = d.text
+          setIsSpeaking(true)
+        }
+      } catch (e) { console.error('Mimi poll error', e) }
+    }, 1000)
+  }, [])
+
   // ── Mimi session ─────────────────────────────────────────────
   const startMimiSession = useCallback(async (name) => {
     const sid = generateSessionId()
@@ -364,6 +384,91 @@ const MimiChat = () => {
     }, 30)
     return () => clearInterval(t)
   }, [mimiText])
+
+  // ── Audio Recording & Processing ────────────────────────────
+  const sendAudioToBackend = useCallback(async (blob) => {
+    const formData = new FormData()
+    formData.append('audio', blob, 'audio.webm')
+    formData.append('student_name', studentName)
+    formData.append('session_id', sessionId)
+    
+    const endpoint = (sessionState === 'idle' || sessionState === 'stopped') 
+      ? API_ENDPOINTS.MIMI_WAKE 
+      : API_ENDPOINTS.MIMI_CHAT_AUDIO
+
+    try {
+      const res = await axios.post(endpoint, formData)
+      if (endpoint === API_ENDPOINTS.MIMI_WAKE && res.data.wake) {
+        console.log("[Audio] WAKE WORD DETECTED:", res.data.text)
+        startFaceDetection()
+      } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
+         console.log("[Audio] TRANSCRIBED:", res.data.text)
+         const d = res.data.data
+         setMimiText(d.text)
+         setImageUrl(d.image_url)
+         setYtVideo(d.yt_video)
+      }
+    } catch (e) { console.error("Audio upload error:", e) }
+  }, [studentName, sessionId, sessionState, startFaceDetection])
+
+  const startRecording = useCallback(async () => {
+    if (isRecording || isSpeaking || isTyping) return
+    // Don't record while detecting face
+    if (sessionState === 'detecting') return
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks = []
+      
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' })
+        sendAudioToBackend(blob)
+        setIsRecording(false)
+        // Clean up stream
+        stream.getTracks().forEach(t => t.stop())
+      }
+      
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setIsRecording(true)
+      
+      // Record segment (4s for wake, 6s for chat)
+      const duration = (sessionState === 'idle' || sessionState === 'stopped') ? 3000 : 6000
+      setTimeout(() => {
+        if (recorder.state === 'recording') recorder.stop()
+      }, duration)
+
+    } catch (e) { 
+      console.error("Mic error:", e) 
+      setIsRecording(false)
+    }
+  }, [isRecording, isSpeaking, isTyping, sessionState, sendAudioToBackend])
+
+  useEffect(() => {
+    // This effect drives the continuous listening loop
+    if (!isRecording && !isSpeaking && !isTyping && sessionState !== 'detecting') {
+      const t = setTimeout(startRecording, 1000)
+      return () => clearTimeout(t)
+    }
+  }, [isRecording, isSpeaking, isTyping, sessionState, startRecording])
+
+  // ── Browser TTS ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!mimiText || isTyping || mimiText === "...") return
+    if (!('speechSynthesis' in window)) return
+
+    window.speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(mimiText)
+    u.lang = 'en-US'
+    u.rate = 1.0
+    u.onstart = () => setIsSpeaking(true)
+    u.onend   = () => {
+      setIsSpeaking(false)
+    }
+    window.speechSynthesis.speak(u)
+  }, [mimiText, isTyping])
 
   // ── Cleanup ───────────────────────────────────────────────────
   useEffect(() => {

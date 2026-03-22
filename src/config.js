@@ -39,6 +39,9 @@ export const API_ENDPOINTS = {
   MIMI_SAVE_CHAT:    `${API_BASE_URL}/api/mimi/save-chat`,
   MIMI_CHAT_HISTORY: `${API_BASE_URL}/api/mimi/chat-history`,
   MIMI_STOP_SESSION: `${API_BASE_URL}/api/mimi/stop-session`,
+  MIMI_CHAT:         `${API_BASE_URL}/mimi-chat`,
+  MIMI_WAKE:         `${API_BASE_URL}/mimi-wake`,
+  MIMI_CHAT_AUDIO:   `${API_BASE_URL}/mimi-chat-audio`,
 };
 
 export default { API_BASE_URL, API_ENDPOINTS };
