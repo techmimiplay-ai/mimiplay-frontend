@@ -1,7 +1,10 @@
-// import React, { useState } from 'react';
+
+
+// import React, { useState, useEffect } from 'react';
 // import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 // import { Home, TrendingUp, Award, FileText, LogOut, Settings } from 'lucide-react';
 // import { motion } from 'framer-motion';
+// import { API_BASE_URL } from '../../config';
 
 // // Parent Pages
 // import ParentHome from '../../components/parent/home/ParentHome';
@@ -14,7 +17,41 @@
 // const ParentPortal = () => {
 //   const navigate = useNavigate();
 //   const location = useLocation();
-//   const [selectedChild, setSelectedChild] = useState(1);
+//   const [children, setChildren] = useState([]);
+//   const [selectedChild, setSelectedChild] = useState(null);
+//   const [loading, setLoading] = useState(true);
+
+//   useEffect(() => {
+//     const fetchMyChildren = async () => {
+//       // Login ke waqt aapne 'userId' store kiya hoga localStorage mein
+//       const parentId = localStorage.getItem('userId');
+
+//       if (!parentId) {
+//         navigate('/login');
+//         return;
+//       }
+
+//       try {
+//         const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`);
+//         const data = await res.json();
+
+//         if (res.ok) {
+//           setChildren(data);
+//           if (data.length > 0) {
+//             setSelectedChild(data[0]); // Pehle bachhe ko default select karo
+//           }
+//         }
+//       } catch (err) {
+//         console.error("Error fetching children:", err);
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchMyChildren();
+//   }, [navigate]);
+
+//   if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
 
 //   const tabs = [
 //     { path: '/parent/home', icon: Home, label: 'Home', emoji: '🏠', color: 'pink' },
@@ -56,7 +93,8 @@
 //           </div>
 //           <div className="flex items-center gap-4">
 //             {/* Parent Child Selector */}
-//             <ParentChildSelector 
+//             <ParentChildSelector
+//               childrenList={children}
 //               selectedChild={selectedChild}
 //               onSelectChild={setSelectedChild}
 //             />
@@ -76,7 +114,7 @@
 //           {tabs.map((tab) => {
 //             const Icon = tab.icon;
 //             const active = isActive(tab.path);
-            
+
 //             return (
 //               <motion.button
 //                 key={tab.path}
@@ -110,10 +148,10 @@
 //         >
 //           <Routes>
 //             <Route path="/" element={<Navigate to="home" replace />} />
-//             <Route path="home" element={<ParentHome />} />
-//             <Route path="progress" element={<ProgressTab />} />
-//             <Route path="achievements" element={<AchievementsTab />} />
-//             <Route path="activity-log" element={<ActivityLog />} />
+//             <Route path="home" element={<ParentHome selectedChild={selectedChild}  />} />
+//             <Route path="progress" element={<ProgressTab selectedChild={selectedChild} />} />
+//             <Route path="achievements" element={<AchievementsTab selectedChild={selectedChild} />}  />
+//             <Route path="activity-log" element={<ActivityLog selectedChild={selectedChild}/>} />
 //             <Route path="settings" element={<SettingsTab />} />
 //           </Routes>
 //         </motion.div>
@@ -207,15 +245,15 @@ const ParentPortal = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
       {/* Top Bar - Full Width */}
-      <div className="bg-white/80 backdrop-blur-lg border-b-4 border-pink-200 px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-4xl font-display font-bold text-gradient">Alexi</h1>
-            <span className="px-4 py-2 bg-pink-100 text-pink-700 rounded-2xl text-sm font-bold">
+      <div className="bg-white/80 backdrop-blur-lg border-b-4 border-pink-200 px-4 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-3 md:py-4 lg:py-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 min-w-0">
+            <h1 className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-bold text-gradient shrink-0">Alexi</h1>
+            <span className="px-2 sm:px-2 md:px-3 lg:px-4 py-1 sm:py-1 md:py-2 lg:py-2 bg-pink-100 text-pink-700 rounded-2xl text-xs sm:text-xs md:text-sm lg:text-sm font-bold whitespace-nowrap">
               Parent Portal 👨‍👩‍👧
             </span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 shrink-0">
             {/* Parent Child Selector */}
             <ParentChildSelector
               childrenList={children}
@@ -224,17 +262,17 @@ const ParentPortal = () => {
             />
             <button
               onClick={handleLogout}
-              className="p-3 bg-red-100 hover:bg-red-200 rounded-2xl transition-colors"
+              className="p-2 sm:p-2 md:p-3 lg:p-3 bg-red-100 hover:bg-red-200 rounded-2xl transition-colors"
             >
-              <LogOut size={20} className="text-red-600" />
+              <LogOut size={18} className="text-red-600" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Floating Tab Navigation - Centered */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-8 py-4">
-        <div className="flex items-center justify-center gap-4">
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-2 sm:px-2 md:px-4 lg:px-8 py-2 sm:py-2 md:py-3 lg:py-4 overflow-x-auto">
+        <div className="flex items-center justify-start sm:justify-start md:justify-center lg:justify-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 min-w-max sm:min-w-max md:min-w-0 lg:min-w-0 mx-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = isActive(tab.path);
@@ -246,15 +284,18 @@ const ParentPortal = () => {
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 className={`
-                  flex flex-col items-center gap-2 px-8 py-4 rounded-3xl font-bold transition-all
+                  flex flex-col items-center gap-1 sm:gap-1 md:gap-1 lg:gap-2
+                  px-3 sm:px-3 md:px-5 lg:px-8
+                  py-2 sm:py-2 md:py-3 lg:py-4
+                  rounded-3xl font-bold transition-all shrink-0
                   ${getColorClasses(tab.color, active)}
                   ${active ? 'shadow-lg' : 'shadow-md'}
                 `}
               >
-                <div className="text-4xl">{tab.emoji}</div>
-                <div className="flex items-center gap-2">
-                  <Icon size={18} />
-                  <span>{tab.label}</span>
+                <div className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl">{tab.emoji}</div>
+                <div className="flex items-center gap-1">
+                  <Icon size={14} className="sm:w-4 sm:h-4 md:w-4 md:h-4 lg:w-[18px] lg:h-[18px]" />
+                  <span className="text-xs sm:text-xs md:text-sm lg:text-base">{tab.label}</span>
                 </div>
               </motion.button>
             );
@@ -263,7 +304,7 @@ const ParentPortal = () => {
       </div>
 
       {/* Main Content - Full Width */}
-      <div className="px-8 py-8">
+      <div className="px-4 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-6 md:py-7 lg:py-8">
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 20 }}

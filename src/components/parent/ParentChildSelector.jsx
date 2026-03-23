@@ -1,20 +1,64 @@
+
+
 // import React, { useState, useRef, useEffect } from 'react';
 // import { createPortal } from 'react-dom';
-// import { ChevronDown, User } from 'lucide-react';
+// import { ChevronDown, User, Loader2 } from 'lucide-react';
 // import { motion, AnimatePresence } from 'framer-motion';
+// import { API_BASE_URL } from '../../config';
 
 // const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
 //   const [isOpen, setIsOpen] = useState(false);
+//   const [children, setChildren] = useState([]); // Dynamic state
+//   const [loading, setLoading] = useState(true);
 //   const [position, setPosition] = useState({ top: 0, right: 0 });
 //   const buttonRef = useRef(null);
 
 //   // Mock data - would come from API in real app
-//   const children = [
-//     { id: 1, name: 'Aarav Sharma', age: 5, avatar: 'AS' },
-//     { id: 2, name: 'Anaya Sharma', age: 7, avatar: 'ANS' },
-//   ];
+//   // const children = [
+//   //   { id: 1, name: 'Aarav Sharma', age: 5, avatar: 'AS' },
+//   //   { id: 2, name: 'Anaya Sharma', age: 7, avatar: 'ANS' },
+//   // ];
 
-//   const selected = children.find(c => c.id === selectedChild) || children[0];
+//   useEffect(() => {
+//     const fetchChildren = async () => {
+//       const parentId = localStorage.getItem('userId');
+//       if (!parentId) return;
+
+//       try {
+//         // Aapko ye API backend mein banani hogi (main niche code de raha hoon)
+//         const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`);
+//         const data = await res.json();
+
+//         if (res.ok) {
+//           // Naam ke initials nikalne ke liye function
+//           const formattedData = data.map(child => ({
+//             id: child.id || child._id,  // ✅ dono handle karo
+//             name: child.name,
+//             class: child.class,
+//             roll_number: child.roll_number,
+//             avatar: child.name.split(' ').map(n => n[0]).join('').toUpperCase()
+//           }));
+
+//           setChildren(formattedData);
+
+//           // Agar koi child selected nahi hai, toh pehle wale ko select kar lo
+//           if (!selectedChild && formattedData.length > 0) {
+//             // onSelectChild(formattedData[0].id);
+//             onSelectChild(formattedData[0]);
+//           }
+//         }
+//       } catch (err) {
+//         console.error("Error fetching children:", err);
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchChildren();
+//   }, []);
+
+//   // const selected = children.find(c => c.id === selectedChild) || children[0];
+//   const selected = selectedChild || children[0];
 
 //   // Update dropdown position when button position changes
 //   useEffect(() => {
@@ -41,6 +85,9 @@
 //     }
 //   }, [isOpen]);
 
+//   if (loading) return <div className="flex items-center gap-2 text-white/70 text-sm"><Loader2 className="animate-spin" size={16} /> Loading...</div>;
+//   if (!selected) return null;
+
 //   const dropdownContent = (
 //     <AnimatePresence>
 //       {isOpen && (
@@ -60,12 +107,11 @@
 //             <motion.button
 //               key={child.id}
 //               onClick={() => {
-//                 onSelectChild(child.id);
+//                 onSelectChild(child);
 //                 setIsOpen(false);
 //               }}
-//               className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left ${
-//                 selected.id === child.id ? 'bg-primary-50 border-l-4 border-primary-600' : ''
-//               }`}
+//               className={`w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left ${selected.id === child.id ? 'bg-primary-50 border-l-4 border-primary-600' : ''
+//                 }`}
 //             >
 //               <div className="w-10 h-10 bg-gradient-to-br from-primary-400 to-primary-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
 //                 {child.avatar}
@@ -110,12 +156,6 @@
 // };
 
 // export default ParentChildSelector;
-
-
-
-
-
-
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -218,7 +258,7 @@ const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
             right: `${position.right}px`,
             zIndex: 99999,
           }}
-          className="bg-white rounded-xl shadow-2xl border-2 border-gray-200 w-64"
+          className="bg-white rounded-xl shadow-2xl border-2 border-gray-200 w-56 sm:w-56 md:w-64 lg:w-64"
         >
           {children.map((child) => (
             <motion.button
@@ -252,17 +292,18 @@ const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gradient-to-r from-primary-400 to-primary-500 text-white hover:shadow-lg transition-shadow relative"
+        className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-3 px-3 sm:px-3 md:px-4 lg:px-4 py-2 rounded-xl bg-gradient-to-r from-primary-400 to-primary-500 text-white hover:shadow-lg transition-shadow relative"
       >
-        <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
+        <div className="w-7 h-7 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-8 lg:h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
           {selected.avatar}
         </div>
-        <div className="text-left">
+        <div className="text-left hidden sm:hidden md:block lg:block">
           <p className="text-xs text-white/80">My Child</p>
           <p className="font-semibold">{selected.name}</p>
         </div>
+        <p className="font-semibold text-sm block sm:block md:hidden lg:hidden">{selected.name}</p>
         <ChevronDown
-          size={18}
+          size={16}
           className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
