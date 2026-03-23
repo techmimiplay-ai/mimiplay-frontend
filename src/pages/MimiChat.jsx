@@ -18,13 +18,6 @@
 //   // no explicit pixel shift state; we animate left/x directly
 
 //   const pollingRef = useRef(null)
-
-//   const startSession = async () => {
-//     try {
-//       await axios.get(API_ENDPOINTS.START_MIMI_SESSION)
-//       setSessionState('running')
-//       startPolling()
-//     } catch (e) {
 //       console.error(e)
 //     }
 //   }
@@ -238,6 +231,19 @@ const MimiChat = () => {
   const mediaRecorderRef = useRef(null)
   const [isRecording, setIsRecording] = useState(false)
 
+  // ── Utils ────────────────────────────────────────────────────
+  const playBase64Audio = useCallback((base64) => {
+    if (!base64) return;
+    try {
+      const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => setIsSpeaking(false);
+      audio.play();
+    } catch (e) {
+      console.error("Error playing returned audio:", e);
+    }
+  }, []);
+
   useEffect(() => {
     chatHistoryRef.current = chatHistory
   }, [chatHistory])
@@ -330,6 +336,9 @@ const MimiChat = () => {
           setMimiText(d.text)
           setImageUrl(d.image_url)
           setYtVideo(d.yt_video)
+          if (d.audio) {
+            playBase64Audio(d.audio);
+          }
           lastAnswerRef.current = d.text
           setIsSpeaking(true)
         }
@@ -405,9 +414,12 @@ const MimiChat = () => {
       } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
          console.log("[Audio] TRANSCRIBED:", res.data.text)
          const d = res.data.data
-         setMimiText(d.text)
-         setImageUrl(d.image_url)
-         setYtVideo(d.yt_video)
+         if (d?.llm_unavailable) {
+           console.warn("[Mimi] LLM unavailable — check server API keys / logs")
+         }
+         setMimiText(d?.text || '')
+         setImageUrl(d?.image_url ?? null)
+         setYtVideo(d?.yt_video ?? null)
       }
     } catch (e) { console.error("Audio upload error:", e) }
   }, [studentName, sessionId, sessionState, startFaceDetection])
@@ -455,21 +467,21 @@ const MimiChat = () => {
     }
   }, [isRecording, isSpeaking, isTyping, sessionState, startRecording])
 
-  // ── Browser TTS ───────────────────────────────────────────────
-  useEffect(() => {
-    if (!mimiText || isTyping || mimiText === "...") return
-    if (!('speechSynthesis' in window)) return
-
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(mimiText)
-    u.lang = 'en-US'
-    u.rate = 1.0
-    u.onstart = () => setIsSpeaking(true)
-    u.onend   = () => {
-      setIsSpeaking(false)
-    }
-    window.speechSynthesis.speak(u)
-  }, [mimiText, isTyping])
+  // ── Browser TTS (DISABLED in favor of edge-tts) ───────────────
+  // useEffect(() => {
+  //   if (!mimiText || isTyping || mimiText === "...") return
+  //   if (!('speechSynthesis' in window)) return
+  //
+  //   window.speechSynthesis.cancel()
+  //   const u = new SpeechSynthesisUtterance(mimiText)
+  //   u.lang = 'en-US'
+  //   u.rate = 1.0
+  //   u.onstart = () => setIsSpeaking(true)
+  //   u.onend   = () => {
+  //     setIsSpeaking(false)
+  //   }
+  //   window.speechSynthesis.speak(u)
+  // }, [mimiText, isTyping])
 
   // ── Cleanup ───────────────────────────────────────────────────
   useEffect(() => {
