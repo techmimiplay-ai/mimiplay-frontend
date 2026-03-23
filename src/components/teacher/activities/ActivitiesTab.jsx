@@ -766,40 +766,86 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   //   }, 300);
   // }, []); // eslint-disable-line
 
+  // const startCameraPoll = useCallback((openCamera = true) => {
+  //   clearInterval(pollRef.current);
+
+  //   if (openCamera) {
+  //     axios.get(API_ENDPOINTS.START_FACE_DETECT).catch(() => { });
+  //   }
+
+  //   pollRef.current = setInterval(async () => {
+  //     if (phaseRef.current !== 'waiting') return;
+  //     try {
+  //       const res = await axios.get(API_ENDPOINTS.GET_STATUS);
+  //       const data = res.data;
+
+  //       if (data.warning === 'too_close') {
+  //         setWarningMsg('⚠️ Too close! Please step back.');
+  //         setShowWarning(true);
+  //         setTimeout(() => setShowWarning(false), 2500);
+  //         return;
+  //       }
+
+  //       if (data.person) {
+  //         const name = data.person.replace(/_/g, ' ').trim();
+  //         if (seenRef.current.has(name.toLowerCase())) return;
+
+  //         clearInterval(pollRef.current);
+  //         pollRef.current = null;
+  //         axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => { });
+
+  //         setStudentName(name);
+  //         setMimiVideo(mimiWaveVideo);
+  //         setPhase('intro');
+  //       }
+  //     } catch { }
+  //   }, 300);
+  // }, []); // eslint-disable-line
+
   const startCameraPoll = useCallback((openCamera = true) => {
     clearInterval(pollRef.current);
 
-    if (openCamera) {
-      axios.get(API_ENDPOINTS.START_FACE_DETECT).catch(() => { });
-    }
+    // Chat jaisa — frontend khud webcam se frame bhejta hai /process-frame pe
+    const videoEl = document.createElement('video');
+    const canvasEl = document.createElement('canvas');
 
-    pollRef.current = setInterval(async () => {
-      if (phaseRef.current !== 'waiting') return;
-      try {
-        const res = await axios.get(API_ENDPOINTS.GET_STATUS);
-        const data = res.data;
+    navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } })
+      .then(stream => {
+        videoEl.srcObject = stream;
+        videoEl.play();
 
-        if (data.warning === 'too_close') {
-          setWarningMsg('⚠️ Too close! Please step back.');
-          setShowWarning(true);
-          setTimeout(() => setShowWarning(false), 2500);
-          return;
-        }
+        pollRef.current = setInterval(async () => {
+          if (phaseRef.current !== 'waiting') return;
+          try {
+            canvasEl.width = 320;
+            canvasEl.height = 240;
+            const ctx = canvasEl.getContext('2d');
+            ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
+            const base64 = canvasEl.toDataURL('image/jpeg', 0.7);
 
-        if (data.person) {
-          const name = data.person.replace(/_/g, ' ').trim();
-          if (seenRef.current.has(name.toLowerCase())) return;
+            const res = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 });
+            const data = res.data;
 
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-          axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => { });
+            if (data.person) {
+              const name = data.person.replace(/_/g, ' ').trim();
+              if (seenRef.current.has(name.toLowerCase())) return;
 
-          setStudentName(name);
-          setMimiVideo(mimiWaveVideo);
-          setPhase('intro');
-        }
-      } catch { }
-    }, 300);
+              // Camera band karo
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+              stream.getTracks().forEach(t => t.stop());
+
+              setStudentName(name);
+              setMimiVideo(mimiWaveVideo);
+              setPhase('intro');
+            }
+          } catch { }
+        }, 1200); // Chat jaisa — 1.2 seconds interval
+      })
+      .catch(err => {
+        console.error('[Activities FaceDetect] Camera error:', err);
+      });
+
   }, []); // eslint-disable-line
 
   // On mount: open camera (no demo fallback — waits for a real saved face)
