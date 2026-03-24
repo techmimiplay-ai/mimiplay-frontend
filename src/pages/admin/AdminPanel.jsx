@@ -1,3 +1,5 @@
+
+
 // import React from 'react';
 // import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 // import { LayoutDashboard, Users, UserPlus, Settings, LogOut, GraduationCap  } from 'lucide-react';
@@ -43,11 +45,11 @@
 
 //   return (
 //     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-//       {/* Top Bar - Full Width */}
-//       <div className="bg-white border-b-2 border-gray-200 px-8 py-4">
+//       {/* Top Bar */}
+//       <div className="bg-white border-b-2 border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
 //         <div className="flex items-center justify-between">
 //           <div className="flex items-center gap-4">
-//             <h1 className="text-3xl font-display font-bold text-gradient">Alexi Admin</h1>
+//             <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-gradient">Alexi Admin</h1>
 //           </div>
 //           <button
 //             onClick={handleLogout}
@@ -58,9 +60,9 @@
 //         </div>
 //       </div>
 
-//       {/* Tab Navigation - Full Width */}
-//       <div className="sticky top-0 z-40 bg-white border-b-2 border-gray-200 px-8 py-3">
-//         <div className="flex items-center gap-3">
+//       {/* Tab Navigation */}
+//       <div className="sticky top-0 z-40 bg-white border-b-2 border-gray-200 px-4 sm:px-6 lg:px-8 py-3">
+//         <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
 //           {tabs.map((tab) => {
 //             const Icon = tab.icon;
 //             const active = isActive(tab.path);
@@ -70,20 +72,20 @@
 //                 key={tab.path}
 //                 onClick={() => navigate(tab.path)}
 //                 className={`
-//                   flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all
+//                   flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all whitespace-nowrap shrink-0
 //                   ${getColorClasses(tab.color, active)}
 //                 `}
 //               >
-//                 <Icon size={20} />
-//                 <span>{tab.label}</span>
+//                 <Icon size={18} />
+//                 <span className="hidden sm:block text-sm sm:text-base">{tab.label}</span>
 //               </button>
 //             );
 //           })}
 //         </div>
 //       </div>
 
-//       {/* Main Content - Full Width */}
-//       <div className="px-8 py-8">
+//       {/* Main Content */}
+//       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 //         <Routes>
 //           <Route path="/" element={<Navigate to="dashboard" replace />} />
 //           <Route path="dashboard" element={<AdminDashboard />} />
@@ -99,9 +101,10 @@
 
 // export default AdminPanel;
 
+
 import React from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, UserPlus, Settings, LogOut, GraduationCap  } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, Settings, LogOut, GraduationCap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // Admin Pages
@@ -161,17 +164,38 @@ const AdminPanel = () => {
 
       {/* Tab Navigation */}
       <div className="sticky top-0 z-40 bg-white border-b-2 border-gray-200 px-4 sm:px-6 lg:px-8 py-3">
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        {/* Mobile: 3 column grid (2 rows) */}
+        <div className="grid grid-cols-3 gap-2 sm:hidden">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = isActive(tab.path);
-            
             return (
               <button
                 key={tab.path}
                 onClick={() => navigate(tab.path)}
                 className={`
-                  flex items-center gap-2 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all whitespace-nowrap shrink-0
+                  flex flex-col items-center gap-1 px-2 py-2 rounded-xl font-semibold transition-all text-center
+                  ${getColorClasses(tab.color, active)}
+                `}
+              >
+                <Icon size={18} />
+                <span className="text-xs">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tablet & Desktop: Normal flex row */}
+        <div className="hidden sm:flex items-center gap-2">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = isActive(tab.path);
+            return (
+              <button
+                key={tab.path}
+                onClick={() => navigate(tab.path)}
+                className={`
+                  flex items-center gap-2 px-4 lg:px-6 py-3 rounded-xl font-semibold transition-all whitespace-nowrap
                   ${getColorClasses(tab.color, active)}
                 `}
               >

@@ -83,15 +83,15 @@
 //   return (
 //     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
 //       {/* Top Bar - Full Width */}
-//       <div className="bg-white/80 backdrop-blur-lg border-b-4 border-pink-200 px-8 py-4">
-//         <div className="flex items-center justify-between">
-//           <div className="flex items-center gap-4">
-//             <h1 className="text-4xl font-display font-bold text-gradient">Alexi</h1>
-//             <span className="px-4 py-2 bg-pink-100 text-pink-700 rounded-2xl text-sm font-bold">
+//       <div className="bg-white/80 backdrop-blur-lg border-b-4 border-pink-200 px-4 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-3 md:py-4 lg:py-4">
+//         <div className="flex items-center justify-between gap-2">
+//           <div className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 min-w-0">
+//             <h1 className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-bold text-gradient shrink-0">Alexi</h1>
+//             <span className="px-2 sm:px-2 md:px-3 lg:px-4 py-1 sm:py-1 md:py-2 lg:py-2 bg-pink-100 text-pink-700 rounded-2xl text-xs sm:text-xs md:text-sm lg:text-sm font-bold whitespace-nowrap">
 //               Parent Portal 👨‍👩‍👧
 //             </span>
 //           </div>
-//           <div className="flex items-center gap-4">
+//           <div className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 shrink-0">
 //             {/* Parent Child Selector */}
 //             <ParentChildSelector
 //               childrenList={children}
@@ -100,17 +100,17 @@
 //             />
 //             <button
 //               onClick={handleLogout}
-//               className="p-3 bg-red-100 hover:bg-red-200 rounded-2xl transition-colors"
+//               className="p-2 sm:p-2 md:p-3 lg:p-3 bg-red-100 hover:bg-red-200 rounded-2xl transition-colors"
 //             >
-//               <LogOut size={20} className="text-red-600" />
+//               <LogOut size={18} className="text-red-600" />
 //             </button>
 //           </div>
 //         </div>
 //       </div>
 
 //       {/* Floating Tab Navigation - Centered */}
-//       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-8 py-4">
-//         <div className="flex items-center justify-center gap-4">
+//       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-2 sm:px-2 md:px-4 lg:px-8 py-2 sm:py-2 md:py-3 lg:py-4 overflow-x-auto">
+//         <div className="flex items-center justify-start sm:justify-start md:justify-center lg:justify-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 min-w-max sm:min-w-max md:min-w-0 lg:min-w-0 mx-auto">
 //           {tabs.map((tab) => {
 //             const Icon = tab.icon;
 //             const active = isActive(tab.path);
@@ -122,15 +122,18 @@
 //                 whileHover={{ scale: 1.05, y: -2 }}
 //                 whileTap={{ scale: 0.95 }}
 //                 className={`
-//                   flex flex-col items-center gap-2 px-8 py-4 rounded-3xl font-bold transition-all
+//                   flex flex-col items-center gap-1 sm:gap-1 md:gap-1 lg:gap-2
+//                   px-3 sm:px-3 md:px-5 lg:px-8
+//                   py-2 sm:py-2 md:py-3 lg:py-4
+//                   rounded-3xl font-bold transition-all shrink-0
 //                   ${getColorClasses(tab.color, active)}
 //                   ${active ? 'shadow-lg' : 'shadow-md'}
 //                 `}
 //               >
-//                 <div className="text-4xl">{tab.emoji}</div>
-//                 <div className="flex items-center gap-2">
-//                   <Icon size={18} />
-//                   <span>{tab.label}</span>
+//                 <div className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl">{tab.emoji}</div>
+//                 <div className="flex items-center gap-1">
+//                   <Icon size={14} className="sm:w-4 sm:h-4 md:w-4 md:h-4 lg:w-[18px] lg:h-[18px]" />
+//                   <span className="text-xs sm:text-xs md:text-sm lg:text-base">{tab.label}</span>
 //                 </div>
 //               </motion.button>
 //             );
@@ -139,7 +142,7 @@
 //       </div>
 
 //       {/* Main Content - Full Width */}
-//       <div className="px-8 py-8">
+//       <div className="px-4 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-6 md:py-7 lg:py-8">
 //         <motion.div
 //           key={location.pathname}
 //           initial={{ opacity: 0, y: 20 }}
@@ -161,6 +164,7 @@
 // };
 
 // export default ParentPortal;
+
 
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -185,7 +189,6 @@ const ParentPortal = () => {
 
   useEffect(() => {
     const fetchMyChildren = async () => {
-      // Login ke waqt aapne 'userId' store kiya hoga localStorage mein
       const parentId = localStorage.getItem('userId');
 
       if (!parentId) {
@@ -200,7 +203,7 @@ const ParentPortal = () => {
         if (res.ok) {
           setChildren(data);
           if (data.length > 0) {
-            setSelectedChild(data[0]); // Pehle bachhe ko default select karo
+            setSelectedChild(data[0]);
           }
         }
       } catch (err) {
@@ -244,17 +247,16 @@ const ParentPortal = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
-      {/* Top Bar - Full Width */}
-      <div className="bg-white/80 backdrop-blur-lg border-b-4 border-pink-200 px-4 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-3 md:py-4 lg:py-4">
+      {/* Top Bar */}
+      <div className="bg-white/80 backdrop-blur-lg border-b-4 border-pink-200 px-4 sm:px-4 md:px-6 lg:px-8 py-3 md:py-4">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 min-w-0">
-            <h1 className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-bold text-gradient shrink-0">Alexi</h1>
-            <span className="px-2 sm:px-2 md:px-3 lg:px-4 py-1 sm:py-1 md:py-2 lg:py-2 bg-pink-100 text-pink-700 rounded-2xl text-xs sm:text-xs md:text-sm lg:text-sm font-bold whitespace-nowrap">
+          <div className="flex items-center gap-2 md:gap-3 lg:gap-4 min-w-0">
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-display font-bold text-gradient shrink-0">Alexi</h1>
+            <span className="px-2 md:px-3 lg:px-4 py-1 md:py-2 bg-pink-100 text-pink-700 rounded-2xl text-xs md:text-sm font-bold whitespace-nowrap">
               Parent Portal 👨‍👩‍👧
             </span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 shrink-0">
-            {/* Parent Child Selector */}
+          <div className="flex items-center gap-2 md:gap-3 lg:gap-4 shrink-0">
             <ParentChildSelector
               childrenList={children}
               selectedChild={selectedChild}
@@ -262,7 +264,7 @@ const ParentPortal = () => {
             />
             <button
               onClick={handleLogout}
-              className="p-2 sm:p-2 md:p-3 lg:p-3 bg-red-100 hover:bg-red-200 rounded-2xl transition-colors"
+              className="p-2 md:p-3 bg-red-100 hover:bg-red-200 rounded-2xl transition-colors"
             >
               <LogOut size={18} className="text-red-600" />
             </button>
@@ -270,13 +272,14 @@ const ParentPortal = () => {
         </div>
       </div>
 
-      {/* Floating Tab Navigation - Centered */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-2 sm:px-2 md:px-4 lg:px-8 py-2 sm:py-2 md:py-3 lg:py-4 overflow-x-auto">
-        <div className="flex items-center justify-start sm:justify-start md:justify-center lg:justify-center gap-2 sm:gap-2 md:gap-3 lg:gap-4 min-w-max sm:min-w-max md:min-w-0 lg:min-w-0 mx-auto">
+      {/* Tab Navigation */}
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-2 md:px-4 lg:px-8 py-2 md:py-3 lg:py-4">
+
+        {/* Mobile (SM): 3 column grid - no scroll */}
+        <div className="grid grid-cols-3 gap-2 sm:hidden">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const active = isActive(tab.path);
-
             return (
               <motion.button
                 key={tab.path}
@@ -284,27 +287,52 @@ const ParentPortal = () => {
                 whileHover={{ scale: 1.05, y: -2 }}
                 whileTap={{ scale: 0.95 }}
                 className={`
-                  flex flex-col items-center gap-1 sm:gap-1 md:gap-1 lg:gap-2
-                  px-3 sm:px-3 md:px-5 lg:px-8
-                  py-2 sm:py-2 md:py-3 lg:py-4
+                  flex flex-col items-center gap-1 px-2 py-2 rounded-3xl font-bold transition-all
+                  ${getColorClasses(tab.color, active)}
+                  ${active ? 'shadow-lg' : 'shadow-md'}
+                `}
+              >
+                <div className="text-xl">{tab.emoji}</div>
+                <span className="text-xs">{tab.label}</span>
+              </motion.button>
+            );
+          })}
+        </div>
+
+        {/* Tablet & Desktop (SM+): Normal flex row */}
+        <div className="hidden sm:flex items-center justify-center gap-2 md:gap-3 lg:gap-4">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const active = isActive(tab.path);
+            return (
+              <motion.button
+                key={tab.path}
+                onClick={() => navigate(tab.path)}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
+                className={`
+                  flex flex-col items-center gap-1 md:gap-1 lg:gap-2
+                  px-5 md:px-5 lg:px-8
+                  py-2 md:py-3 lg:py-4
                   rounded-3xl font-bold transition-all shrink-0
                   ${getColorClasses(tab.color, active)}
                   ${active ? 'shadow-lg' : 'shadow-md'}
                 `}
               >
-                <div className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl">{tab.emoji}</div>
+                <div className="text-2xl md:text-3xl lg:text-4xl">{tab.emoji}</div>
                 <div className="flex items-center gap-1">
-                  <Icon size={14} className="sm:w-4 sm:h-4 md:w-4 md:h-4 lg:w-[18px] lg:h-[18px]" />
-                  <span className="text-xs sm:text-xs md:text-sm lg:text-base">{tab.label}</span>
+                  <Icon size={14} className="md:w-4 md:h-4 lg:w-[18px] lg:h-[18px]" />
+                  <span className="text-xs md:text-sm lg:text-base">{tab.label}</span>
                 </div>
               </motion.button>
             );
           })}
         </div>
+
       </div>
 
-      {/* Main Content - Full Width */}
-      <div className="px-4 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-6 md:py-7 lg:py-8">
+      {/* Main Content */}
+      <div className="px-4 md:px-6 lg:px-8 py-6 md:py-7 lg:py-8">
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 20 }}
@@ -313,10 +341,10 @@ const ParentPortal = () => {
         >
           <Routes>
             <Route path="/" element={<Navigate to="home" replace />} />
-            <Route path="home" element={<ParentHome selectedChild={selectedChild}  />} />
+            <Route path="home" element={<ParentHome selectedChild={selectedChild} />} />
             <Route path="progress" element={<ProgressTab selectedChild={selectedChild} />} />
-            <Route path="achievements" element={<AchievementsTab selectedChild={selectedChild} />}  />
-            <Route path="activity-log" element={<ActivityLog selectedChild={selectedChild}/>} />
+            <Route path="achievements" element={<AchievementsTab selectedChild={selectedChild} />} />
+            <Route path="activity-log" element={<ActivityLog selectedChild={selectedChild} />} />
             <Route path="settings" element={<SettingsTab />} />
           </Routes>
         </motion.div>

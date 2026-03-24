@@ -292,18 +292,20 @@ const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 sm:gap-2 md:gap-3 lg:gap-3 px-3 sm:px-3 md:px-4 lg:px-4 py-2 rounded-xl bg-gradient-to-r from-primary-400 to-primary-500 text-white hover:shadow-lg transition-shadow relative"
+        className="flex items-center gap-2 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-primary-400 to-primary-500 text-white hover:shadow-lg transition-shadow relative"
       >
-        <div className="w-7 h-7 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-8 lg:h-8 bg-white/20 rounded-full flex items-center justify-center text-sm font-bold">
+        <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">
           {selected.avatar}
         </div>
-        <div className="text-left hidden sm:hidden md:block lg:block">
+        {/* Mobile: sirf naam - chhota */}
+        <p className="font-semibold text-xs block md:hidden max-w-[60px] truncate">{selected.name}</p>
+        {/* Desktop: My Child + naam */}
+        <div className="text-left hidden md:block">
           <p className="text-xs text-white/80">My Child</p>
-          <p className="font-semibold">{selected.name}</p>
+          <p className="font-semibold text-sm">{selected.name}</p>
         </div>
-        <p className="font-semibold text-sm block sm:block md:hidden lg:hidden">{selected.name}</p>
         <ChevronDown
-          size={16}
+          size={14}
           className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
