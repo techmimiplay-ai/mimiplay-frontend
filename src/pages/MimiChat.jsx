@@ -456,20 +456,20 @@ const MimiChat = () => {
   }, [isRecording, isSpeaking, isTyping, sessionState, startRecording])
 
   // ── Browser TTS ───────────────────────────────────────────────
-  useEffect(() => {
-    if (!mimiText || isTyping || mimiText === "...") return
-    if (!('speechSynthesis' in window)) return
+  // useEffect(() => {
+  //   if (!mimiText || isTyping || mimiText === "...") return
+  //   if (!('speechSynthesis' in window)) return
 
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance(mimiText)
-    u.lang = 'en-US'
-    u.rate = 1.0
-    u.onstart = () => setIsSpeaking(true)
-    u.onend   = () => {
-      setIsSpeaking(false)
-    }
-    window.speechSynthesis.speak(u)
-  }, [mimiText, isTyping])
+  //   window.speechSynthesis.cancel()
+  //   const u = new SpeechSynthesisUtterance(mimiText)
+  //   u.lang = 'en-US'
+  //   u.rate = 1.0
+  //   u.onstart = () => setIsSpeaking(true)
+  //   u.onend   = () => {
+  //     setIsSpeaking(false)
+  //   }
+  //   window.speechSynthesis.speak(u)
+  // }, [mimiText, isTyping])
 
   // ── Cleanup ───────────────────────────────────────────────────
   useEffect(() => {
