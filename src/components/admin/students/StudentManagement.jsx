@@ -1,3 +1,5 @@
+
+
 // import React, { useState, useEffect } from 'react';
 // import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
 // import { Search, Eye, Mail, Phone, User, CheckCircle, Plus, Pencil } from 'lucide-react';
@@ -46,9 +48,7 @@
 //     const fetchParents = async () => {
 //         const res = await fetch(`${API_BASE_URL}/api/admin/all-users`);
 //         const data = await res.json();
-
 //         const onlyParents = data.filter(u => u.role === "parent");
-
 //         setParents(onlyParents);
 //     };
 
@@ -57,19 +57,15 @@
 //         fetchParents();
 //     }, []);
 
-
 //     const handleAddStudent = async () => {
 //         const selectedParentObj = parents.find(p => p._id === formData.parentName);
 //         try {
 //             const response = await fetch(`${API_BASE_URL}/api/admin/add-student`, {
 //                 method: "POST",
-//                 headers: {
-//                     "Content-Type": "application/json",
-//                 },
+//                 headers: { "Content-Type": "application/json" },
 //                 body: JSON.stringify({
 //                     name: formData.studentName,
 //                     class: formData.studentClass,
-//                     // parentName: formData.parentName,
 //                     parentName: selectedParentObj ? selectedParentObj.name : "",
 //                     parent_id: formData.parentName,
 //                     email: formData.email,
@@ -93,9 +89,7 @@
 //         try {
 //             const res = await fetch(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
 //                 method: "PUT",
-//                 headers: {
-//                     "Content-Type": "application/json",
-//                 },
+//                 headers: { "Content-Type": "application/json" },
 //                 body: JSON.stringify({
 //                     name: editData.studentName,
 //                     class: editData.studentClass,
@@ -108,7 +102,7 @@
 
 //             if (res.ok) {
 //                 alert("Student updated ✅");
-//                 fetchStudents(); // refresh table
+//                 fetchStudents();
 //                 setShowEditModal(false);
 //             } else {
 //                 alert("Update failed ❌");
@@ -121,14 +115,12 @@
 
 //     const handleParentChange = (e) => {
 //         const parentId = e.target.value;
-
-//         // Parents list mein se selected parent ki puri info nikalna
 //         const selectedParent = parents.find(p => p._id === parentId);
 
 //         if (selectedParent) {
 //             setFormData({
 //                 ...formData,
-//                 parentName: parentId, // Hum ID store kar rahe hain name ki jagah
+//                 parentName: parentId,
 //                 email: selectedParent.email || '',
 //                 phone: selectedParent.phone || ''
 //             });
@@ -151,30 +143,29 @@
 //     return (
 //         <div className="space-y-6">
 //             {/* Header */}
-//             <div className="flex items-center justify-between">
+//             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
 //                 <div>
-//                     <h1 className="text-4xl font-bold text-text mb-2">Student Management</h1>
+//                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Student Management</h1>
 //                     <p className="text-text/60">View and manage students</p>
 //                 </div>
-
 //                 <Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
 //                     Add Student
 //                 </Button>
 //             </div>
 
 //             {/* Stats */}
-//             <div className="grid grid-cols-3 gap-4">
+//             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 //                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
 //                     <p className="text-sm text-blue-700 mb-1">Total Students</p>
-//                     <p className="text-4xl font-bold text-blue-900">{stats.total}</p>
+//                     <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
 //                 </Card>
 //                 <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
 //                     <p className="text-sm text-green-700 mb-1">Active</p>
-//                     <p className="text-4xl font-bold text-green-900">{stats.active}</p>
+//                     <p className="text-3xl font-bold text-green-900">{stats.active}</p>
 //                 </Card>
 //                 <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
 //                     <p className="text-sm text-yellow-700 mb-1">Pending</p>
-//                     <p className="text-4xl font-bold text-yellow-900">{stats.pending}</p>
+//                     <p className="text-3xl font-bold text-yellow-900">{stats.pending}</p>
 //                 </Card>
 //             </div>
 
@@ -190,14 +181,14 @@
 
 //             {/* Table */}
 //             <Card>
-//                 <div className="overflow-x-auto">
-//                     <table className="w-full">
+//                 <div className="overflow-x-auto w-full">
+//                     <table className="w-full min-w-[600px]">
 //                         <thead>
 //                             <tr className="border-b border-gray-200">
 //                                 <th className="text-left py-4 px-4 font-semibold">Student</th>
-//                                 <th className="text-left py-4 px-4 font-semibold">Parent</th>
-//                                 <th className="text-left py-4 px-4 font-semibold">Contact</th>
-//                                 <th className="text-left py-4 px-4 font-semibold">Class</th>
+//                                 <th className="text-left py-4 px-4 font-semibold hidden sm:table-cell">Parent</th>
+//                                 <th className="text-left py-4 px-4 font-semibold hidden md:table-cell">Contact</th>
+//                                 <th className="text-left py-4 px-4 font-semibold hidden sm:table-cell">Class</th>
 //                                 <th className="text-left py-4 px-4 font-semibold">Status</th>
 //                                 <th className="text-right py-4 px-4 font-semibold">Actions</th>
 //                             </tr>
@@ -214,52 +205,37 @@
 //                                             </div>
 //                                         </div>
 //                                     </td>
-
-//                                     <td className="py-4 px-4">{student.parentName}</td>
-
-//                                     <td className="py-4 px-4">
+//                                     <td className="py-4 px-4 hidden sm:table-cell">{student.parentName}</td>
+//                                     <td className="py-4 px-4 hidden md:table-cell">
 //                                         <div className="text-sm">
 //                                             <p className="flex items-center gap-1">
-//                                                 <Mail size={14} /> {student.email}
+//                                                 <Mail size={14} className="shrink-0" />
+//                                                 <span className="truncate max-w-[120px]">{student.email}</span>
 //                                             </p>
 //                                             <p className="flex items-center gap-1">
-//                                                 <Phone size={14} /> {student.phone}
+//                                                 <Phone size={14} className="shrink-0" /> {student.phone}
 //                                             </p>
 //                                         </div>
 //                                     </td>
-
-//                                     <td className="py-4 px-4">{student.studentClass}</td>
-
+//                                     <td className="py-4 px-4 hidden sm:table-cell">{student.studentClass}</td>
 //                                     <td className="py-4 px-4">
 //                                         <span className={`
-//                       px-3 py-1 rounded-full text-sm font-semibold inline-flex items-center gap-1
-//                       ${student.status === 'active'
-//                                                 ? 'bg-green-100 text-green-700'
-//                                                 : 'bg-yellow-100 text-yellow-700'}
-//                     `}>
-//                                             <CheckCircle size={14} />
+//                                             px-2 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1
+//                                             ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}
+//                                         `}>
+//                                             <CheckCircle size={12} />
 //                                             {student.status}
 //                                         </span>
 //                                     </td>
-
 //                                     <td className="py-4 px-4 text-right space-x-2">
 //                                         <button
-//                                             onClick={() => {
-//                                                 setEditData(student);
-//                                                 setShowEditModal(true);
-//                                             }}
-//                                             className="p-2 hover:bg-indigo-50 rounded-lg"
-//                                         >
+//                                             onClick={() => { setEditData(student); setShowEditModal(true); }}
+//                                             className="p-2 hover:bg-indigo-50 rounded-lg">
 //                                             <Pencil size={16} className="text-indigo-600" />
 //                                         </button>
-
 //                                         <button
-//                                             onClick={() => {
-//                                                 setSelectedStudent(student);
-//                                                 setShowViewModal(true);
-//                                             }}
-//                                             className="p-2 hover:bg-blue-50 rounded-lg"
-//                                         >
+//                                             onClick={() => { setSelectedStudent(student); setShowViewModal(true); }}
+//                                             className="p-2 hover:bg-blue-50 rounded-lg">
 //                                             <Eye size={18} className="text-blue-600" />
 //                                         </button>
 //                                     </td>
@@ -270,159 +246,73 @@
 //                 </div>
 //             </Card>
 
+//             {/* Add Modal */}
 //             {showAddModal && (
-//                 <Modal
-//                     isOpen={showAddModal}
-//                     onClose={() => setShowAddModal(false)}
-//                     title="Add New Student"
-//                     size="md"
-//                 >
+//                 <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Student" size="md">
 //                     <div className="space-y-4">
-//                         <Input
-//                             label="Student Name"
-//                             icon={User}
-//                             value={formData.studentName}
-//                             onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
-//                         />
-
-//                         <Input
-//                             label="Class"
-//                             placeholder="e.g. UKG-A"
-//                             value={formData.studentClass}
-//                             onChange={(e) => setFormData({ ...formData, studentClass: e.target.value })}
-//                         />
-
+//                         <Input label="Student Name" icon={User} value={formData.studentName}
+//                             onChange={(e) => setFormData({ ...formData, studentName: e.target.value })} />
+//                         <Input label="Class" placeholder="e.g. UKG-A" value={formData.studentClass}
+//                             onChange={(e) => setFormData({ ...formData, studentClass: e.target.value })} />
 //                         <div className="space-y-2">
-//                             <label className="text-sm font-medium text-gray-700">
-//                                 Parent
-//                             </label>
-
+//                             <label className="text-sm font-medium text-gray-700">Parent</label>
 //                             <div className="relative">
 //                                 <User className="absolute left-4 top-3.5 text-gray-400" size={18} />
-
 //                                 <select
 //                                     className="w-full border rounded-full py-3 pl-12 pr-4 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
 //                                     value={formData.parentName}
-//                                     // onChange={(e) =>
-//                                     //     setFormData({ ...formData, parentName: e.target.value })
-//                                     // }
-//                                     onChange={handleParentChange}
-//                                 >
+//                                     onChange={handleParentChange}>
 //                                     <option value="">Select Parent</option>
-
 //                                     {parents.map((p) => (
-//                                         <option key={p._id} value={p._id}>
-//                                             {p.name}
-//                                         </option>
+//                                         <option key={p._id} value={p._id}>{p.name}</option>
 //                                     ))}
 //                                 </select>
 //                             </div>
 //                         </div>
-
-//                         <Input
-//                             label="Email"
-//                             icon={Mail}
-//                             value={formData.email}
-//                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-//                         />
-
-//                         <Input
-//                             label="Phone"
-//                             icon={Phone}
-//                             value={formData.phone}
-//                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-//                         />
-
+//                         <Input label="Email" icon={Mail} value={formData.email}
+//                             onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+//                         <Input label="Phone" icon={Phone} value={formData.phone}
+//                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
 //                         <div className="flex gap-3 mt-6">
-//                             <Button variant="primary" className="flex-1" onClick={handleAddStudent}>
-//                                 Add Student
-//                             </Button>
-//                             <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>
-//                                 Cancel
-//                             </Button>
+//                             <Button variant="primary" className="flex-1" onClick={handleAddStudent}>Add Student</Button>
+//                             <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
 //                         </div>
 //                     </div>
 //                 </Modal>
 //             )}
 
+//             {/* Edit Modal */}
 //             {editData && (
-//                 <Modal
-//                     isOpen={showEditModal}
-//                     onClose={() => setShowEditModal(false)}
-//                     title="Edit Student"
-//                     size="md"
-//                 >
+//                 <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Student" size="md">
 //                     <div className="space-y-4">
-//                         <Input
-//                             label="Student Name"
-//                             value={editData.studentName}
-//                             onChange={(e) =>
-//                                 setEditData({ ...editData, studentName: e.target.value })
-//                             }
-//                         />
-
-//                         <Input
-//                             label="Class"
-//                             value={editData.studentClass}
-//                             onChange={(e) =>
-//                                 setEditData({ ...editData, studentClass: e.target.value })
-//                             }
-//                         />
-
+//                         <Input label="Student Name" value={editData.studentName}
+//                             onChange={(e) => setEditData({ ...editData, studentName: e.target.value })} />
+//                         <Input label="Class" value={editData.studentClass}
+//                             onChange={(e) => setEditData({ ...editData, studentClass: e.target.value })} />
 //                         <select
 //                             className="w-full border rounded-lg p-2"
-//                             // parentId use karein takki ID select ho
 //                             value={editData.parentId || ""}
-//                             onChange={(e) =>
-//                                 setEditData({ ...editData, parentId: e.target.value })
-//                             }
-//                         >
+//                             onChange={(e) => setEditData({ ...editData, parentId: e.target.value })}>
 //                             <option value="">Select Parent</option>
 //                             {parents.map(p => (
-//                                 <option key={p._id} value={p._id}> {/* <--- Value ID honi chahiye */}
-//                                     {p.name}
-//                                 </option>
+//                                 <option key={p._id} value={p._id}>{p.name}</option>
 //                             ))}
 //                         </select>
-
-//                         <Input
-//                             label="Email"
-//                             value={editData.email}
-//                             onChange={(e) =>
-//                                 setEditData({ ...editData, email: e.target.value })
-//                             }
-//                         />
-
-//                         <Input
-//                             label="Phone"
-//                             value={editData.phone}
-//                             onChange={(e) =>
-//                                 setEditData({ ...editData, phone: e.target.value })
-//                             }
-//                         />
-
+//                         <Input label="Email" value={editData.email}
+//                             onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
+//                         <Input label="Phone" value={editData.phone}
+//                             onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
 //                         <div className="flex gap-3 mt-6">
-//                             <Button variant="primary" className="flex-1" onClick={handleUpdateStudent}>
-//                                 Save Changes
-//                             </Button>
-//                             <Button
-//                                 variant="outline"
-//                                 onClick={() => setShowEditModal(false)}
-//                                 className="flex-1"
-//                             >
-//                                 Cancel
-//                             </Button>
+//                             <Button variant="primary" className="flex-1" onClick={handleUpdateStudent}>Save Changes</Button>
+//                             <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">Cancel</Button>
 //                         </div>
 //                     </div>
 //                 </Modal>
 //             )}
+
 //             {/* View Modal */}
 //             {selectedStudent && (
-//                 <Modal
-//                     isOpen={showViewModal}
-//                     onClose={() => setShowViewModal(false)}
-//                     title="Student Details"
-//                 >
+//                 <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} title="Student Details">
 //                     <div className="space-y-3">
 //                         <p><b>Student:</b> {selectedStudent.studentName}</p>
 //                         <p><b>Class:</b> {selectedStudent.studentClass}</p>
@@ -441,7 +331,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
 import { Search, Eye, Mail, Phone, User, CheckCircle, Plus, Pencil } from 'lucide-react';
-import { API_BASE_URL } from '../../../config';
+import { API_BASE_URL, getAuthHeaders } from '../../../config';
 
 const StudentManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -463,8 +353,15 @@ const StudentManagement = () => {
     });
 
     const fetchStudents = async () => {
-        const res = await fetch(`${API_BASE_URL}/api/admin/all-students`);
+        const res = await fetch(`${API_BASE_URL}/api/admin/all-students`, {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
+
+        if (!Array.isArray(data)) {
+            console.error("Students fetch error:", data);
+            return;
+        }
 
         const formatted = data.map(s => ({
             id: s._id,
@@ -484,8 +381,16 @@ const StudentManagement = () => {
     };
 
     const fetchParents = async () => {
-        const res = await fetch(`${API_BASE_URL}/api/admin/all-users`);
+        const res = await fetch(`${API_BASE_URL}/api/admin/all-users`, {
+            headers: getAuthHeaders()
+        });
         const data = await res.json();
+
+        if (!Array.isArray(data)) {
+            console.error("Parents fetch error:", data);
+            return;
+        }
+
         const onlyParents = data.filter(u => u.role === "parent");
         setParents(onlyParents);
     };
@@ -500,7 +405,7 @@ const StudentManagement = () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/add-student`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     name: formData.studentName,
                     class: formData.studentClass,
@@ -527,7 +432,7 @@ const StudentManagement = () => {
         try {
             const res = await fetch(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     name: editData.studentName,
                     class: editData.studentClass,

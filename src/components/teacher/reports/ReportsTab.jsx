@@ -1,7 +1,10 @@
-// import React, { useState } from 'react';
+
+
+// import React, { useState, useEffect } from 'react';
 // import { Button, Card } from '../../../components/shared';
 // import { Download, TrendingUp, TrendingDown, BarChart3, Mail } from 'lucide-react';
 // import { motion } from 'framer-motion';
+// import { API_BASE_URL } from '../../../config';
 
 // const ReportsTab = () => {
 //   const [dateRange, setDateRange] = useState({
@@ -10,40 +13,44 @@
 //   });
 
 //   const [filterActivity, setFilterActivity] = useState('all');
+//   const [loading, setLoading] = useState(true);
+//   const [classStats, setClassStats] = useState({
+//     avgScore: 0,
+//     totalActivities: 0,
+//     totalStars: 0,
+//     avgAttendance: 0,
+//     improvement: '+0%'
+//   });
+//   const [topPerformers, setTopPerformers] = useState([]);
+//   const [needsAttention, setNeedsAttention] = useState([]);
+//   const [activityBreakdown, setActivityBreakdown] = useState([]);
+//   const [weeklyProgress, setWeeklyProgress] = useState([]);
 
-//   const classStats = {
-//     avgScore: 4.1,
-//     totalActivities: 156,
-//     totalStars: 1847,
-//     avgAttendance: 94,
-//     improvement: '+12%'
+//   const fetchReports = async () => {
+//     try {
+//       setLoading(true);
+//       const res = await fetch(
+//         `${API_BASE_URL}/api/teacher/reports?start_date=${dateRange.start}&end_date=${dateRange.end}`
+//       );
+//       const data = await res.json();
+
+//       if (data.status === 'success') {
+//         setClassStats(data.classStats);
+//         setTopPerformers(data.topPerformers);
+//         setNeedsAttention(data.needsAttention);
+//         setActivityBreakdown(data.activityBreakdown);
+//         setWeeklyProgress(data.weeklyProgress);
+//       }
+//     } catch (err) {
+//       console.error('Error fetching reports:', err);
+//     } finally {
+//       setLoading(false);
+//     }
 //   };
 
-//   const topPerformers = [
-//     { rank: 1, name: 'Priya Patel', score: 4.8, stars: 289, trend: 'up' },
-//     { rank: 2, name: 'Rohan Kumar', score: 4.6, stars: 267, trend: 'up' },
-//     { rank: 3, name: 'Sara Ali', score: 4.5, stars: 245, trend: 'stable' },
-//   ];
-
-//   const needsAttention = [
-//     { name: 'Amit Verma', score: 3.2, subject: 'Phonics', improvement: 'needed' },
-//     { name: 'Neha Sharma', score: 3.5, subject: 'Reading', improvement: 'needed' },
-//   ];
-
-//   const activityBreakdown = [
-//     { activity: 'Alphabets', avgScore: 4.5, completed: 45, percentage: 95 },
-//     { activity: 'Phonics', avgScore: 4.0, completed: 38, percentage: 80 },
-//     { activity: 'Objects', avgScore: 4.2, completed: 42, percentage: 85 },
-//     { activity: 'Colors', avgScore: 4.6, completed: 31, percentage: 92 },
-//   ];
-
-//   const weeklyProgress = [
-//     { day: 'Mon', activities: 23, avgScore: 4.1 },
-//     { day: 'Tue', activities: 28, avgScore: 4.3 },
-//     { day: 'Wed', activities: 25, avgScore: 4.0 },
-//     { day: 'Thu', activities: 31, avgScore: 4.4 },
-//     { day: 'Fri', activities: 27, avgScore: 4.2 },
-//   ];
+//   useEffect(() => {
+//     fetchReports();
+//   }, [dateRange]);
 
 //   const downloadReport = () => {
 //     alert('Downloading PDF report... (Feature coming soon)');
@@ -53,19 +60,25 @@
 //     alert('Sending reports to parents... (Feature coming soon)');
 //   };
 
+//   if (loading) return (
+//     <div className="flex h-64 items-center justify-center">
+//       <p className="text-text/60 text-lg">Loading reports...</p>
+//     </div>
+//   );
+
 //   return (
 //     <div className="space-y-6">
 //       {/* Header */}
-//       <div className="flex items-center justify-between">
+//       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
 //         <div>
-//           <h1 className="text-4xl font-bold text-text mb-2">Reports & Analytics</h1>
+//           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-text mb-2">Reports & Analytics</h1>
 //           <p className="text-text/60">Track class performance and progress</p>
 //         </div>
-//         <div className="flex gap-3">
-//           <Button variant="outline" icon={Mail} onClick={emailParents}>
+//         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+//           <Button variant="outline" icon={Mail} onClick={emailParents} className="w-full sm:w-auto">
 //             Email Parents
 //           </Button>
-//           <Button variant="primary" icon={Download} onClick={downloadReport}>
+//           <Button variant="primary" icon={Download} onClick={downloadReport} className="w-full sm:w-auto">
 //             Download Report
 //           </Button>
 //         </div>
@@ -73,7 +86,7 @@
 
 //       {/* Filters */}
 //       <Card>
-//         <div className="grid grid-cols-3 gap-4">
+//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 //           <div>
 //             <label className="block text-sm font-semibold text-text mb-2">Start Date</label>
 //             <input
@@ -92,7 +105,7 @@
 //               className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400"
 //             />
 //           </div>
-//           <div>
+//           <div className="md:col-span-2 lg:col-span-1">
 //             <label className="block text-sm font-semibold text-text mb-2">Activity Filter</label>
 //             <select
 //               value={filterActivity}
@@ -110,13 +123,13 @@
 //       </Card>
 
 //       {/* Class Overview Stats */}
-//       <div className="grid grid-cols-5 gap-4">
+//       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
 //         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
 //           <div className="flex items-center gap-2 mb-2">
 //             <BarChart3 size={20} className="text-purple-700" />
 //             <p className="text-sm text-purple-700 font-semibold">Class Average</p>
 //           </div>
-//           <p className="text-4xl font-bold text-purple-900 mb-1">
+//           <p className="text-3xl lg:text-4xl font-bold text-purple-900 mb-1">
 //             ⭐ {classStats.avgScore}/5
 //           </p>
 //           <div className="flex items-center gap-1 text-green-600">
@@ -127,45 +140,47 @@
 
 //         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
 //           <p className="text-sm text-blue-700 font-semibold mb-2">Total Activities</p>
-//           <p className="text-4xl font-bold text-blue-900">{classStats.totalActivities}</p>
+//           <p className="text-3xl lg:text-4xl font-bold text-blue-900">{classStats.totalActivities}</p>
 //           <p className="text-xs text-blue-700 mt-1">This period</p>
 //         </Card>
 
 //         <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
 //           <p className="text-sm text-yellow-700 font-semibold mb-2">Stars Earned</p>
-//           <p className="text-4xl font-bold text-yellow-900">{classStats.totalStars}</p>
+//           <p className="text-3xl lg:text-4xl font-bold text-yellow-900">{classStats.totalStars}</p>
 //           <p className="text-xs text-yellow-700 mt-1">Collective effort</p>
 //         </Card>
 
 //         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
 //           <p className="text-sm text-green-700 font-semibold mb-2">Avg Attendance</p>
-//           <p className="text-4xl font-bold text-green-900">{classStats.avgAttendance}%</p>
+//           <p className="text-3xl lg:text-4xl font-bold text-green-900">{classStats.avgAttendance}%</p>
 //           <p className="text-xs text-green-700 mt-1">Excellent!</p>
 //         </Card>
 
 //         <Card className="bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200">
 //           <p className="text-sm text-pink-700 font-semibold mb-2">Engagement</p>
-//           <p className="text-4xl font-bold text-pink-900">High</p>
+//           <p className="text-3xl lg:text-4xl font-bold text-pink-900">
+//             {classStats.avgScore >= 4 ? 'High' : classStats.avgScore >= 3 ? 'Medium' : 'Low'}
+//           </p>
 //           <p className="text-xs text-pink-700 mt-1">Keep it up!</p>
 //         </Card>
 //       </div>
 
 //       {/* Charts Row */}
-//       <div className="grid grid-cols-2 gap-6">
-//         {/* Weekly Progress Chart */}
+//       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+//         {/* Weekly Progress */}
 //         <Card>
 //           <h2 className="text-xl font-bold text-text mb-4">Weekly Progress</h2>
 //           <div className="space-y-3">
-//             {weeklyProgress.map((day, index) => (
+//             {weeklyProgress.length > 0 ? weeklyProgress.map((day, index) => (
 //               <motion.div
 //                 key={day.day}
 //                 initial={{ opacity: 0, x: -20 }}
 //                 animate={{ opacity: 1, x: 0 }}
 //                 transition={{ delay: index * 0.1 }}
 //               >
-//                 <div className="flex items-center justify-between mb-1">
+//                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1">
 //                   <span className="text-sm font-semibold text-text">{day.day}</span>
-//                   <span className="text-sm text-text/60">{day.activities} activities · {day.avgScore}/5 ⭐</span>
+//                   <span className="text-xs sm:text-sm text-text/60">{day.activities} activities · {day.avgScore}/5 ⭐</span>
 //                 </div>
 //                 <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
 //                   <motion.div
@@ -180,7 +195,9 @@
 //                   />
 //                 </div>
 //               </motion.div>
-//             ))}
+//             )) : (
+//               <p className="text-text/60 text-center py-4">No data available</p>
+//             )}
 //           </div>
 //         </Card>
 
@@ -188,7 +205,7 @@
 //         <Card>
 //           <h2 className="text-xl font-bold text-text mb-4">Activity Breakdown</h2>
 //           <div className="space-y-4">
-//             {activityBreakdown.map((item, index) => (
+//             {activityBreakdown.length > 0 ? activityBreakdown.map((item, index) => (
 //               <motion.div
 //                 key={item.activity}
 //                 initial={{ opacity: 0, x: 20 }}
@@ -198,9 +215,9 @@
 //               >
 //                 <div className="flex items-center justify-between mb-2">
 //                   <h3 className="font-semibold text-text">{item.activity}</h3>
-//                   <span className="text-2xl">⭐ {item.avgScore}/5</span>
+//                   <span className="text-xl md:text-2xl">⭐ {item.avgScore}/5</span>
 //                 </div>
-//                 <div className="flex items-center justify-between text-sm text-text/60 mb-2">
+//                 <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs sm:text-sm text-text/60 mb-2">
 //                   <span>{item.completed} completed</span>
 //                   <span>{item.percentage}% success rate</span>
 //                 </div>
@@ -213,25 +230,27 @@
 //                   />
 //                 </div>
 //               </motion.div>
-//             ))}
+//             )) : (
+//               <p className="text-text/60 text-center py-4">No data available</p>
+//             )}
 //           </div>
 //         </Card>
 //       </div>
 
 //       {/* Top Performers & Needs Attention */}
-//       <div className="grid grid-cols-2 gap-6">
+//       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 //         {/* Top Performers */}
 //         <Card>
 //           <div className="flex items-center gap-2 mb-4">
-//             <div className="text-3xl">🏆</div>
+//             <div className="text-2xl md:text-3xl">🏆</div>
 //             <h2 className="text-xl font-bold text-text">Top Performers</h2>
 //           </div>
 //           <div className="space-y-3">
-//             {topPerformers.map((student) => (
-//               <div key={student.rank} className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl">
-//                 <div className="flex items-center gap-4">
+//             {topPerformers.length > 0 ? topPerformers.map((student) => (
+//               <div key={student.rank} className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl">
+//                 <div className="flex items-center gap-3 md:gap-4">
 //                   <div className={`
-//                     w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-xl
+//                     w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-white text-lg md:text-xl
 //                     ${student.rank === 1 ? 'bg-yellow-500' :
 //                       student.rank === 2 ? 'bg-gray-400' :
 //                       'bg-orange-600'}
@@ -239,40 +258,41 @@
 //                     {student.rank}
 //                   </div>
 //                   <div>
-//                     <h3 className="font-semibold text-text">{student.name}</h3>
-//                     <p className="text-sm text-text/60">Score: {student.score}/5 · {student.stars} stars</p>
+//                     <h3 className="font-semibold text-sm md:text-base text-text">{student.name}</h3>
+//                     <p className="text-xs md:text-sm text-text/60">Score: {student.score}/5 · {student.stars} stars</p>
 //                   </div>
 //                 </div>
-//                 <div className="text-2xl">
+//                 <div className="text-xl md:text-2xl">
 //                   {student.trend === 'up' ? '📈' : '➡️'}
 //                 </div>
 //               </div>
-//             ))}
+//             )) : (
+//               <p className="text-text/60 text-center py-4">No data available</p>
+//             )}
 //           </div>
 //         </Card>
 
 //         {/* Needs Attention */}
 //         <Card>
 //           <div className="flex items-center gap-2 mb-4">
-//             <div className="text-3xl">⚠️</div>
+//             <div className="text-2xl md:text-3xl">⚠️</div>
 //             <h2 className="text-xl font-bold text-text">Needs Attention</h2>
 //           </div>
 //           <div className="space-y-3">
-//             {needsAttention.map((student, index) => (
-//               <div key={index} className="p-4 bg-red-50 rounded-2xl border-2 border-red-100">
+//             {needsAttention.length > 0 ? needsAttention.map((student, index) => (
+//               <div key={index} className="p-3 md:p-4 bg-red-50 rounded-2xl border-2 border-red-100">
 //                 <div className="flex items-center justify-between mb-2">
 //                   <h3 className="font-semibold text-text">{student.name}</h3>
-//                   <span className="text-2xl">⭐ {student.score}/5</span>
+//                   <span className="text-xl md:text-2xl">⭐ {student.score}/5</span>
 //                 </div>
-//                 <div className="flex items-center justify-between">
-//                   <p className="text-sm text-red-700">Struggling with: <strong>{student.subject}</strong></p>
-//                   <Button size="sm" variant="outline">
+//                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+//                   <p className="text-xs md:text-sm text-red-700">Struggling with: <strong>{student.subject}</strong></p>
+//                   <Button size="sm" variant="outline" className="w-full sm:w-auto">
 //                     View Details
 //                   </Button>
 //                 </div>
 //               </div>
-//             ))}
-//             {needsAttention.length === 0 && (
+//             )) : (
 //               <div className="text-center py-8 text-text/60">
 //                 <p className="text-2xl mb-2">🎉</p>
 //                 <p>All students are doing great!</p>
@@ -288,10 +308,14 @@
 // export default ReportsTab;
 
 
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Button, Card } from '../../../components/shared';
 import { Download, TrendingUp, TrendingDown, BarChart3, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { API_BASE_URL } from '../../../config';
+// ✅ Axios import kiya gaya hai
+import axios from 'axios';
 
 const ReportsTab = () => {
   const [dateRange, setDateRange] = useState({
@@ -300,40 +324,53 @@ const ReportsTab = () => {
   });
 
   const [filterActivity, setFilterActivity] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [classStats, setClassStats] = useState({
+    avgScore: 0,
+    totalActivities: 0,
+    totalStars: 0,
+    avgAttendance: 0,
+    improvement: '+0%'
+  });
+  const [topPerformers, setTopPerformers] = useState([]);
+  const [needsAttention, setNeedsAttention] = useState([]);
+  const [activityBreakdown, setActivityBreakdown] = useState([]);
+  const [weeklyProgress, setWeeklyProgress] = useState([]);
 
-  const classStats = {
-    avgScore: 4.1,
-    totalActivities: 156,
-    totalStars: 1847,
-    avgAttendance: 94,
-    improvement: '+12%'
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      // ✅ Yahan fetch ki jagah axios use ho raha hai taaki main.jsx ka interceptor token bhej sake
+      const response = await axios.get(`${API_BASE_URL}/api/teacher/reports`, {
+        params: {
+          start_date: dateRange.start,
+          end_date: dateRange.end
+        }
+      });
+
+      // Axios mein data direct response.data mein milta hai
+      const data = response.data;
+
+      if (data.status === 'success') {
+        setClassStats(data.classStats);
+        setTopPerformers(data.topPerformers);
+        setNeedsAttention(data.needsAttention);
+        setActivityBreakdown(data.activityBreakdown);
+        setWeeklyProgress(data.weeklyProgress);
+      }
+    } catch (err) {
+      console.error('Error fetching reports:', err);
+      if (err.response && err.response.status === 401) {
+        console.error('Unauthorized: Token invalid ya expire ho gaya hai.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const topPerformers = [
-    { rank: 1, name: 'Priya Patel', score: 4.8, stars: 289, trend: 'up' },
-    { rank: 2, name: 'Rohan Kumar', score: 4.6, stars: 267, trend: 'up' },
-    { rank: 3, name: 'Sara Ali', score: 4.5, stars: 245, trend: 'stable' },
-  ];
-
-  const needsAttention = [
-    { name: 'Amit Verma', score: 3.2, subject: 'Phonics', improvement: 'needed' },
-    { name: 'Neha Sharma', score: 3.5, subject: 'Reading', improvement: 'needed' },
-  ];
-
-  const activityBreakdown = [
-    { activity: 'Alphabets', avgScore: 4.5, completed: 45, percentage: 95 },
-    { activity: 'Phonics', avgScore: 4.0, completed: 38, percentage: 80 },
-    { activity: 'Objects', avgScore: 4.2, completed: 42, percentage: 85 },
-    { activity: 'Colors', avgScore: 4.6, completed: 31, percentage: 92 },
-  ];
-
-  const weeklyProgress = [
-    { day: 'Mon', activities: 23, avgScore: 4.1 },
-    { day: 'Tue', activities: 28, avgScore: 4.3 },
-    { day: 'Wed', activities: 25, avgScore: 4.0 },
-    { day: 'Thu', activities: 31, avgScore: 4.4 },
-    { day: 'Fri', activities: 27, avgScore: 4.2 },
-  ];
+  useEffect(() => {
+    fetchReports();
+  }, [dateRange]);
 
   const downloadReport = () => {
     alert('Downloading PDF report... (Feature coming soon)');
@@ -342,6 +379,12 @@ const ReportsTab = () => {
   const emailParents = () => {
     alert('Sending reports to parents... (Feature coming soon)');
   };
+
+  if (loading) return (
+    <div className="flex h-64 items-center justify-center">
+      <p className="text-text/60 text-lg">Loading reports...</p>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -435,18 +478,20 @@ const ReportsTab = () => {
 
         <Card className="bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200">
           <p className="text-sm text-pink-700 font-semibold mb-2">Engagement</p>
-          <p className="text-3xl lg:text-4xl font-bold text-pink-900">High</p>
+          <p className="text-3xl lg:text-4xl font-bold text-pink-900">
+            {classStats.avgScore >= 4 ? 'High' : classStats.avgScore >= 3 ? 'Medium' : 'Low'}
+          </p>
           <p className="text-xs text-pink-700 mt-1">Keep it up!</p>
         </Card>
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Progress Chart */}
+        {/* Weekly Progress */}
         <Card>
           <h2 className="text-xl font-bold text-text mb-4">Weekly Progress</h2>
           <div className="space-y-3">
-            {weeklyProgress.map((day, index) => (
+            {weeklyProgress.length > 0 ? weeklyProgress.map((day, index) => (
               <motion.div
                 key={day.day}
                 initial={{ opacity: 0, x: -20 }}
@@ -470,7 +515,9 @@ const ReportsTab = () => {
                   />
                 </div>
               </motion.div>
-            ))}
+            )) : (
+              <p className="text-text/60 text-center py-4">No data available</p>
+            )}
           </div>
         </Card>
 
@@ -478,7 +525,7 @@ const ReportsTab = () => {
         <Card>
           <h2 className="text-xl font-bold text-text mb-4">Activity Breakdown</h2>
           <div className="space-y-4">
-            {activityBreakdown.map((item, index) => (
+            {activityBreakdown.length > 0 ? activityBreakdown.map((item, index) => (
               <motion.div
                 key={item.activity}
                 initial={{ opacity: 0, x: 20 }}
@@ -503,7 +550,9 @@ const ReportsTab = () => {
                   />
                 </div>
               </motion.div>
-            ))}
+            )) : (
+              <p className="text-text/60 text-center py-4">No data available</p>
+            )}
           </div>
         </Card>
       </div>
@@ -517,7 +566,7 @@ const ReportsTab = () => {
             <h2 className="text-xl font-bold text-text">Top Performers</h2>
           </div>
           <div className="space-y-3">
-            {topPerformers.map((student) => (
+            {topPerformers.length > 0 ? topPerformers.map((student) => (
               <div key={student.rank} className="flex items-center justify-between p-3 md:p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl">
                 <div className="flex items-center gap-3 md:gap-4">
                   <div className={`
@@ -537,7 +586,9 @@ const ReportsTab = () => {
                   {student.trend === 'up' ? '📈' : '➡️'}
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-text/60 text-center py-4">No data available</p>
+            )}
           </div>
         </Card>
 
@@ -548,7 +599,7 @@ const ReportsTab = () => {
             <h2 className="text-xl font-bold text-text">Needs Attention</h2>
           </div>
           <div className="space-y-3">
-            {needsAttention.map((student, index) => (
+            {needsAttention.length > 0 ? needsAttention.map((student, index) => (
               <div key={index} className="p-3 md:p-4 bg-red-50 rounded-2xl border-2 border-red-100">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold text-text">{student.name}</h3>
@@ -561,8 +612,7 @@ const ReportsTab = () => {
                   </Button>
                 </div>
               </div>
-            ))}
-            {needsAttention.length === 0 && (
+            )) : (
               <div className="text-center py-8 text-text/60">
                 <p className="text-2xl mb-2">🎉</p>
                 <p>All students are doing great!</p>

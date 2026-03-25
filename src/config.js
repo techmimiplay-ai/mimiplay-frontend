@@ -21,6 +21,15 @@
 // src/config.js
 export const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+// ✅ Token helper
+export const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+};
+
 export const API_ENDPOINTS = {
   GET_STATUS:           `${API_BASE_URL}/get-status`,
   START_CLASSROOM:      `${API_BASE_URL}/start-classroom`,
