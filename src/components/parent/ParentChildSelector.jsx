@@ -161,7 +161,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, User, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE_URL } from '../../config';
+// import { API_BASE_URL } from '../../config';
+import { API_BASE_URL, getAuthHeaders } from '../../config';
 
 const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -183,7 +184,10 @@ const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
 
       try {
         // Aapko ye API backend mein banani hogi (main niche code de raha hoon)
-        const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`);
+        // const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`);
+        const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`, {
+          headers: getAuthHeaders()
+        });
         const data = await res.json();
 
         if (res.ok) {
