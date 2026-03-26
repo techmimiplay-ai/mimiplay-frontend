@@ -205,36 +205,36 @@ import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { API_ENDPOINTS } from '../config'
 
-import bgImage          from '../assets/images/mimi/bg.jpg'
-import mimiIdleVideo    from '../assets/images/mimi/mimiidell_nobg.webm'
-import mimiWaveVideo    from '../assets/images/mimi/mimiwavehand_nobg.webm'
+import bgImage from '../assets/images/mimi/bg.jpg'
+import mimiIdleVideo from '../assets/images/mimi/mimiidell_nobg.webm'
+import mimiWaveVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
 // ✅ Reading book video — jo tumne bheja hai
 import mimiReadingVideo from '../assets/images/mimi/mimiidell_nobg.webm'
 
 const MimiChat = () => {
 
-  const [sessionState,  setSessionState]  = useState('idle')
-  const [studentName,   setStudentName]   = useState('')
-  const [sessionId,     setSessionId]     = useState('')
-  const [mimiText,      setMimiText]      = useState('')
-  const [imageUrl,      setImageUrl]      = useState(null)
-  const [ytVideo,       setYtVideo]       = useState(null)
-  const [playing,       setPlaying]       = useState(false)
+  const [sessionState, setSessionState] = useState('idle')
+  const [studentName, setStudentName] = useState('')
+  const [sessionId, setSessionId] = useState('')
+  const [mimiText, setMimiText] = useState('')
+  const [imageUrl, setImageUrl] = useState(null)
+  const [ytVideo, setYtVideo] = useState(null)
+  const [playing, setPlaying] = useState(false)
   const [displayedText, setDisplayedText] = useState('')
-  const [isTyping,      setIsTyping]      = useState(false)
-  const [isSpeaking,    setIsSpeaking]    = useState(false) // ← Mimi bol rahi hai?
-  const [chatHistory,   setChatHistory]   = useState([])
-  const [lastQuestion,  setLastQuestion]  = useState('') // ← current question track
+  const [isTyping, setIsTyping] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false) // ← Mimi bol rahi hai?
+  const [chatHistory, setChatHistory] = useState([])
+  const [lastQuestion, setLastQuestion] = useState('') // ← current question track
 
-  const videoRef        = useRef(null)
-  const canvasRef       = useRef(null)
-  const [webcamActive,  setWebcamActive] = useState(false)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const [webcamActive, setWebcamActive] = useState(false)
 
-  const pollingRef      = useRef(null)
-  const facePollingRef  = useRef(null)
-  const lastAnswerRef   = useRef('')
-  const lastActionRef   = useRef('')
-  const chatHistoryRef  = useRef([])
+  const pollingRef = useRef(null)
+  const facePollingRef = useRef(null)
+  const lastAnswerRef = useRef('')
+  const lastActionRef = useRef('')
+  const chatHistoryRef = useRef([])
   const mediaRecorderRef = useRef(null)
   const [isRecording, setIsRecording] = useState(false)
 
@@ -257,8 +257,8 @@ const MimiChat = () => {
 
   const startWebcam = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 480 } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 }
       })
       if (videoRef.current) {
         videoRef.current.srcObject = stream
@@ -279,8 +279,8 @@ const MimiChat = () => {
     setYtVideo(null)
     setChatHistory([])
     chatHistoryRef.current = []
-    lastAnswerRef.current  = ''
-    lastActionRef.current  = ''
+    lastAnswerRef.current = ''
+    lastActionRef.current = ''
     setLastQuestion('')
 
     await startWebcam()
@@ -293,17 +293,17 @@ const MimiChat = () => {
 
       try {
         const canvas = canvasRef.current
-        const video  = videoRef.current
-        canvas.width  = 320 // Small for faster upload
+        const video = videoRef.current
+        canvas.width = 320 // Small for faster upload
         canvas.height = 240
         const ctx = canvas.getContext('2d')
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
         const base64 = canvas.toDataURL('image/jpeg', 0.7)
 
         console.log("[FaceDetect] Sending frame to backend...");
-        const res  = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 })
+        const res = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 })
         const data = res.data
-        
+
         if (data.person) {
           console.log("[FaceDetect] RECOGNIZED:", data.person);
           const name = data.person.replace(/_/g, ' ').trim()
@@ -338,21 +338,37 @@ const MimiChat = () => {
   }, [])
 
   // ── Mimi session ─────────────────────────────────────────────
+  // const startMimiSession = useCallback(async (name) => {
+  //   const sid = generateSessionId()
+  //   setSessionId(sid)
+  //   setSessionState('running')
+  //   try { await axios.get(API_ENDPOINTS.START_MIMI_SESSION) }
+  //   catch (e) { console.error('Mimi session start error:', e) }
+  //   startPolling(name, sid)
+  // }, [])
+  // 
+
   const startMimiSession = useCallback(async (name) => {
     const sid = generateSessionId()
     setSessionId(sid)
     setSessionState('running')
-    try { await axios.get(API_ENDPOINTS.START_MIMI_SESSION) }
+    try {
+      // ← GET se POST karo aur data bhejo
+      await axios.post(API_ENDPOINTS.START_MIMI_SESSION, {
+        student_name: name,
+        session_id: sid
+      })
+    }
     catch (e) { console.error('Mimi session start error:', e) }
     startPolling(name, sid)
   }, []) // eslint-disable-line
-  
+
   // ── Stop session ──────────────────────────────────────────────
   const stopSession = useCallback(async () => {
     // Pehle intervals band karo
     clearInterval(pollingRef.current)
     clearInterval(facePollingRef.current)
-    pollingRef.current     = null
+    pollingRef.current = null
     facePollingRef.current = null
     stopWebcam()
 
@@ -386,30 +402,72 @@ const MimiChat = () => {
   }, [mimiText])
 
   // ── Audio Recording & Processing ────────────────────────────
+  // const sendAudioToBackend = useCallback(async (blob) => {
+  //   const formData = new FormData()
+  //   formData.append('audio', blob, 'audio.webm')
+  //   formData.append('student_name', studentName)
+  //   formData.append('session_id', sessionId)
+
+  //   const endpoint = (sessionState === 'idle' || sessionState === 'stopped') 
+  //     ? API_ENDPOINTS.MIMI_WAKE 
+  //     : API_ENDPOINTS.MIMI_CHAT_AUDIO
+
+  //   try {
+  //     const res = await axios.post(endpoint, formData)
+  //     if (endpoint === API_ENDPOINTS.MIMI_WAKE && res.data.wake) {
+  //       console.log("[Audio] WAKE WORD DETECTED:", res.data.text)
+  //       setMimiText("Yes? I am here! Let me see who is there...")
+  //       startFaceDetection()
+  //     } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
+  //        console.log("[Audio] TRANSCRIBED:", res.data.text)
+  //        const d = res.data.data
+  //        setMimiText(d.text)
+  //        setImageUrl(d.image_url)
+  //        setYtVideo(d.yt_video)
+  //     }
+  //   } catch (e) { console.error("Audio upload error:", e) }
+  // }, [studentName, sessionId, sessionState, startFaceDetection])
   const sendAudioToBackend = useCallback(async (blob) => {
     const formData = new FormData()
     formData.append('audio', blob, 'audio.webm')
     formData.append('student_name', studentName)
     formData.append('session_id', sessionId)
-    
-    const endpoint = (sessionState === 'idle' || sessionState === 'stopped') 
-      ? API_ENDPOINTS.MIMI_WAKE 
+
+    const endpoint = (sessionState === 'idle' || sessionState === 'stopped')
+      ? API_ENDPOINTS.MIMI_WAKE
       : API_ENDPOINTS.MIMI_CHAT_AUDIO
 
     try {
       const res = await axios.post(endpoint, formData)
+
       if (endpoint === API_ENDPOINTS.MIMI_WAKE && res.data.wake) {
-        console.log("[Audio] WAKE WORD DETECTED:", res.data.text)
         setMimiText("Yes? I am here! Let me see who is there...")
         startFaceDetection()
+
       } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
-         console.log("[Audio] TRANSCRIBED:", res.data.text)
-         const d = res.data.data
-         setMimiText(d.text)
-         setImageUrl(d.image_url)
-         setYtVideo(d.yt_video)
+        const transcribedQuestion = res.data.text
+        const d = res.data.data
+        setMimiText(d.text)
+        setImageUrl(d.image_url)
+        setYtVideo(d.yt_video)
+
+        // DB mein save karo
+        try {
+          await axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
+            student_name: studentName,
+            session_id: sessionId,
+            question: transcribedQuestion,
+            answer: d.text,
+            image_url: d.image_url || '',
+          })
+          console.log("[MimiChat] Chat saved ✅")
+        } catch (saveErr) {
+          console.error("[MimiChat] Save failed:", saveErr)
+        }
       }
-    } catch (e) { console.error("Audio upload error:", e) }
+    } catch (e) {
+      console.error("Audio upload error:", e)
+    }
   }, [studentName, sessionId, sessionState, startFaceDetection])
 
   const startRecording = useCallback(async () => {
@@ -421,7 +479,7 @@ const MimiChat = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const recorder = new MediaRecorder(stream)
       const chunks = []
-      
+
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
       recorder.onstop = async () => {
         const blob = new Blob(chunks, { type: 'audio/webm' })
@@ -430,19 +488,19 @@ const MimiChat = () => {
         // Clean up stream
         stream.getTracks().forEach(t => t.stop())
       }
-      
+
       mediaRecorderRef.current = recorder
       recorder.start()
       setIsRecording(true)
-      
+
       // Record segment (4s for wake, 6s for chat)
       const duration = (sessionState === 'idle' || sessionState === 'stopped') ? 3000 : 6000
       setTimeout(() => {
         if (recorder.state === 'recording') recorder.stop()
       }, duration)
 
-    } catch (e) { 
-      console.error("Mic error:", e) 
+    } catch (e) {
+      console.error("Mic error:", e)
       setIsRecording(false)
     }
   }, [isRecording, isSpeaking, isTyping, sessionState, sendAudioToBackend])
@@ -483,7 +541,7 @@ const MimiChat = () => {
   // ── Mimi ka sahi video choose karo ───────────────────────────
   const getMimiVideo = () => {
     if (sessionState !== 'running') return mimiIdleVideo
-    if (isSpeaking)                 return mimiReadingVideo  // ← bol rahi hai = reading book
+    if (isSpeaking) return mimiReadingVideo  // ← bol rahi hai = reading book
     return mimiWaveVideo                                     // ← sun rahi hai = wave
   }
 
@@ -515,16 +573,15 @@ const MimiChat = () => {
             ⏹ Stop Session
           </motion.button>
         )}
-        <div className={`px-4 py-2 rounded-full text-sm font-bold ${
-          sessionState === 'running'   ? 'bg-green-100 text-green-700'   :
+        <div className={`px-4 py-2 rounded-full text-sm font-bold ${sessionState === 'running' ? 'bg-green-100 text-green-700' :
           sessionState === 'detecting' ? 'bg-yellow-100 text-yellow-700' :
-          sessionState === 'stopped'   ? 'bg-gray-100 text-gray-600'     :
-          'bg-gray-100 text-gray-500'
-        }`}>
-          {sessionState === 'idle'      && '⚪ Ready'}
+            sessionState === 'stopped' ? 'bg-gray-100 text-gray-600' :
+              'bg-gray-100 text-gray-500'
+          }`}>
+          {sessionState === 'idle' && '⚪ Ready'}
           {sessionState === 'detecting' && '📷 Scanning...'}
-          {sessionState === 'running'   && '🟢 Active'}
-          {sessionState === 'stopped'   && '🔴 Stopped'}
+          {sessionState === 'running' && '🟢 Active'}
+          {sessionState === 'stopped' && '🔴 Stopped'}
         </div>
       </div>
 
@@ -535,7 +592,7 @@ const MimiChat = () => {
             className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
               className="bg-white rounded-[2.5rem] p-8 text-center shadow-2xl max-w-lg w-full mx-4 border-4 border-purple-100">
-              
+
               <div className="relative w-full aspect-video bg-gray-100 rounded-3xl overflow-hidden mb-6 shadow-inner border-2 border-purple-50">
                 <video
                   ref={videoRef}
@@ -554,7 +611,7 @@ const MimiChat = () => {
 
               <h2 className="text-3xl font-black text-purple-700 mb-2">Who is there?</h2>
               <p className="text-purple-500 text-lg mb-6 tracking-wide">Align your face with the frame...</p>
-              
+
               <div className="flex justify-center gap-3">
                 {[0, 1, 2].map(i => (
                   <motion.div key={i}
@@ -564,7 +621,7 @@ const MimiChat = () => {
                 ))}
               </div>
 
-              <button 
+              <button
                 onClick={stopSession}
                 className="mt-8 text-gray-400 hover:text-red-500 transition-colors text-sm font-bold uppercase tracking-widest"
               >
@@ -591,14 +648,14 @@ const MimiChat = () => {
               </p>
               <p className="text-xs text-gray-400 mb-6">Python server is still running ✅</p>
               <button onClick={() => {
-                  setSessionState('idle')
-                  setStudentName('')
-                  setChatHistory([])
-                  setMimiText('')
-                  setImageUrl(null)
-                  setYtVideo(null)
-                  setIsSpeaking(false)
-                }}
+                setSessionState('idle')
+                setStudentName('')
+                setChatHistory([])
+                setMimiText('')
+                setImageUrl(null)
+                setYtVideo(null)
+                setIsSpeaking(false)
+              }}
                 className="px-8 py-3 bg-purple-600 text-white font-black rounded-2xl shadow-lg hover:bg-purple-700">
                 🔄 Start New Session
               </button>
@@ -830,7 +887,7 @@ export default MimiChat
 
 //       {/* Mimi Character */}
 //       <motion.div
-//         className="absolute bottom-0 z-50 
+//         className="absolute bottom-0 z-50
 //         w-[220px] h-[220px]
 //         sm:w-[300px] sm:h-[300px]
 //         md:w-[380px] md:h-[380px]
