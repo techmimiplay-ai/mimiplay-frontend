@@ -701,7 +701,7 @@ const MimiChat = () => {
                       className="max-h-52 mx-auto rounded-xl shadow-md" />
                   </div>
                 )}
-
+                {/* 
                 {ytVideo && (
                   <div className="mt-4">
                     {!playing ? (
@@ -711,9 +711,37 @@ const MimiChat = () => {
                       </button>
                     ) : (
                       <iframe
-                        src={`https://www.youtube.com/embed/${extractYoutubeId(ytVideo)}?autoplay=1`}
+                        // src={`https://www.youtube.com/embed/${extractYoutubeId(ytVideo)}?autoplay=1`}
                         title="YouTube video" allow="autoplay; encrypted-media"
                         className="w-full h-52 rounded-xl" />
+                    )}
+                  </div>
+                )} */}
+                {ytVideo && (
+                  <div className="mt-4">
+                    {ytVideo.includes('/embed/') ? (
+                      // YouTube API key hai → inline player
+                      !playing ? (
+                        <button onClick={() => setPlaying(true)}
+                          className="px-4 py-2 bg-red-600 text-white rounded-xl font-bold shadow hover:bg-red-700">
+                          ▶ Play Video
+                        </button>
+                      ) : (
+                        <iframe
+                          src={`${ytVideo}?autoplay=1`}
+                          title="YouTube video"
+                          allow="autoplay; encrypted-media"
+                          className="w-full h-52 rounded-xl shadow" />
+                      )
+                    ) : (
+                      // API key nahi → YouTube search page open hogi new tab mein
+                      <a
+                        href={ytVideo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold shadow hover:bg-red-700 transition-colors">
+                        ▶ Watch on YouTube
+                      </a>
                     )}
                   </div>
                 )}
