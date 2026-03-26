@@ -343,7 +343,7 @@ const MimiChat = () => {
           setIsSpeaking(true)
         }
       } catch (e) { console.error('Mimi poll error', e) }
-    }, 1000)
+    }, 5000)
   }, [])
 
   // ── Mimi session ─────────────────────────────────────────────
@@ -351,7 +351,7 @@ const MimiChat = () => {
     const sid = generateSessionId()
     setSessionId(sid)
     setSessionState('running')
-    try { await axios.get(API_ENDPOINTS.START_MIMI_SESSION) }
+    try { await axios.post(API_ENDPOINTS.START_MIMI_SESSION, {}) }
     catch (e) { console.error('Mimi session start error:', e) }
     startPolling(name, sid)
   }, []) // eslint-disable-line
