@@ -6578,6 +6578,7 @@
 
 
 // src/components/teacher/activities/ActivitiesTab.jsx
+// src/components/teacher/activities/ActivitiesTab.jsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { Button, Card, Modal } from '../../../components/shared';
@@ -6589,28 +6590,19 @@ import { useStars } from '../../../context/StarContext';
 import bgImage from '../../../assets/images/mimi/activity_bg.jpg';
 import mimiIdleVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
 import mimiWaveVideo from '../../../assets/images/mimi/mimiwavehand_nobg.webm';
-import mimiHappyVideo from '../../../assets/images/mimi/mimiwavehand_nobg.webm'; // was .mp4 which had white bg
+import mimiHappyVideo from '../../../assets/images/mimi/mimiwavehand_nobg.webm';
 import mimiNeutralVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
 
 // ── DISABLE BROWSER SPEECH SYNTHESIS COMPLETELY ──────────────────────────────
-// This prevents any accidental browser TTS from being used
 if (window.speechSynthesis) {
-  // Store original method
-  const originalSpeak = window.speechSynthesis.speak;
-
-  // Override to do nothing
   window.speechSynthesis.speak = function (utterance) {
     console.warn('[SpeechSynthesis] Blocked browser TTS. Use backend voice only.');
-    // Do nothing - block all browser TTS
   };
-
-  // Also cancel any pending speech
   window.speechSynthesis.cancel();
 }
 
 // ── Emoji map ─────────────────────────────────────────────────────────────────
 const WORD_EMOJIS = {
-  // Alphabet / Phonics
   Apple: '🍎', Ball: '⚽', Cat: '🐱', Dog: '🐶', Elephant: '🐘', Fish: '🐟',
   Goat: '🐐', Hat: '🎩', Kite: '🪁', Lion: '🦁', Mango: '🥭', Orange: '🍊',
   Rabbit: '🐰', Sun: '☀️', Tiger: '🐯', Zebra: '🦓', Bat: '🦇', Can: '🥫',
@@ -6619,40 +6611,32 @@ const WORD_EMOJIS = {
   Yacht: '⛵', Queen: '👑', Jungle: '🌴', Frog: '🐸', Clap: '👏', Drum: '🥁',
   Flat: '📐', Grin: '😁', Slim: '🪄', Plum: '🍑', Bright: '✨', Crane: '🏗️',
   Dwarf: '🧟', Flask: '⚗️', Grind: '⚙️', Shrub: '🌿', Thrill: '🎢', Whale: '🐋',
-  // Fruits
   Banana: '🍌', Grape: '🍇', Strawberry: '🍓', Watermelon: '🍉', Pineapple: '🍍',
   Grapes: '🍇', Lemon: '🍋', Peach: '🍑', Papaya: '🧃', Guava: '🍐', Lychee: '🫐',
   Cherry: '🍒', Kiwi: '🥝', Blueberry: '🫐', Raspberry: '🍓', Apricot: '🍑',
   Pomegranate: '🍎', Custard: '🍮',
-  // Animals
   Cow: '🐄', Horse: '🐴', Sheep: '🐑', Duck: '🦆', Bear: '🐻', Fox: '🦊',
   Deer: '🦌', Giraffe: '🦒', Dolphin: '🐬', Penguin: '🐧', Crocodile: '🐊', Cheetah: '🐆',
-  // Colors
   Red: '🔴', Blue: '🔵', Green: '🟢', Yellow: '🟡', Purple: '🟣',
   Pink: '🌸', Brown: '🟤', Black: '⚫', White: '⚪', Grey: '🩶', Violet: '💜',
   Maroon: '❤️', Crimson: '🌹', Turquoise: '🩵', Indigo: '🌌', Magenta: '💗',
   Coral: '🪸', Amber: '🍯', Scarlet: '🔺', Olive: '🫒',
-  // Numbers
   One: '1️⃣', Two: '2️⃣', Three: '3️⃣', Four: '4️⃣', Five: '5️⃣',
   Six: '6️⃣', Seven: '7️⃣', Eight: '8️⃣', Nine: '9️⃣', Ten: '🔟',
   Eleven: '1️⃣1️⃣', Twelve: '1️⃣2️⃣', Thirteen: '1️⃣3️⃣', Fourteen: '1️⃣4️⃣',
   Fifteen: '1️⃣5️⃣', Sixteen: '1️⃣6️⃣', Seventeen: '1️⃣7️⃣', Eighteen: '1️⃣8️⃣',
   Nineteen: '1️⃣9️⃣', Twenty: '2️⃣0️⃣', Thirty: '3️⃣0️⃣',
-  // Body Parts
   Head: '🙂', Eye: '👁️', Ear: '👂', Nose: '👃', Mouth: '👄', Hand: '✋',
   Leg: '🦵', Foot: '🦶', Hair: '💇', Teeth: '🦷', Tongue: '👅', Shoulder: '🫱',
   Arm: '💪', Finger: '☝️', Knee: '🦵', Ankle: '🦶', Chin: '😶', Elbow: '💪',
   Wrist: '⌚', Thumb: '👍', Heel: '🦶', Toe: '🦶', Neck: '🧣',
-  // Shapes
   Circle: '⭕', Square: '🔲', Triangle: '🔺', Rectangle: '▬', Star: '⭐',
   Oval: '🥚', Heart: '❤️', Diamond: '💎', Pentagon: '⬠', Hexagon: '⬡',
   Octagon: '🛑', Cylinder: '🪣', Cone: '🍦',
-  // Vehicles
   Car: '🚗', Bus: '🚌', Train: '🚆', Bicycle: '🚲', Airplane: '✈️', Truck: '🚛',
   Helicopter: '🚁', Rocket: '🚀', Boat: '⛵', Ship: '🛳️',
 };
 
-// ── Activity word sets (difficulty-aware) — used for activities 1-8 ──────────
 const ACTIVITY_WORDS = {
   1: {
     easy: ['Apple', 'Ball', 'Cat', 'Dog', 'Hat', 'Rat'],
@@ -6694,7 +6678,6 @@ const ACTIVITY_WORDS = {
     medium: ['Star', 'Oval', 'Heart', 'Diamond'],
     hard: ['Pentagon', 'Hexagon', 'Octagon', 'Cylinder', 'Cone'],
   },
-  // Activities 9-12: static FALLBACK only — LLM generates fresh questions each session
   9: {
     easy: ['Dog', 'Cat', 'Cow', 'Lion', 'Tiger', 'Rabbit', 'Duck', 'Bear'],
     medium: ['Apple', 'Banana', 'Mango', 'Orange', 'Grapes', 'Strawberry', 'Pineapple', 'Watermelon'],
@@ -6752,7 +6735,6 @@ const ACTIVITY_WORDS = {
       { pattern: '100 → 90 → 80 → 70 → ?', answer: 'Sixty', hint: 'Sixty' },
     ],
   },
-  // Activity 12 — built dynamically from all other activities (see buildQuiz12 below)
   12: { easy: [], medium: [], hard: [] },
 };
 
@@ -6761,7 +6743,6 @@ const DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 function buildQuiz12(difficulty) {
   const pickN = (arr, n) => shuffleArray(arr).slice(0, Math.min(n, arr.length));
   const tag = (item, source) => ({ _word: item, _source: source });
-
   const items = [
     ...pickN(ACTIVITY_WORDS[1][difficulty] || ACTIVITY_WORDS[1].easy, 2).map(w => tag(w, '🔤 Alphabet')),
     ...pickN(ACTIVITY_WORDS[2][difficulty] || ACTIVITY_WORDS[2].easy, 2).map(w => tag(w, '🔊 Phonics')),
@@ -6772,90 +6753,104 @@ function buildQuiz12(difficulty) {
     ...pickN(ACTIVITY_WORDS[7][difficulty] || ACTIVITY_WORDS[7].easy, 2).map(w => tag(w, '👀 Body Parts')),
     ...pickN(ACTIVITY_WORDS[8][difficulty] || ACTIVITY_WORDS[8].easy, 1).map(w => tag(w, '🔷 Shapes')),
   ];
-
   return shuffleArray(items);
 }
 
-// function speak(text, rate = 0.85) {
-//   if (!window.speechSynthesis) return;
-//   window.speechSynthesis.cancel();
-//   const u = new SpeechSynthesisUtterance(text);
-//   u.rate = rate; u.pitch = 1.15;
-//   window.speechSynthesis.speak(u);
-// }
-// Current audio element reference (to cancel if needed)
+// ── speak() — backend voice only, waits for audio to finish ──────────────────
 let currentAudio = null;
-let speakInProgress = false;
 
-// async function speak(text, rate = 0.85) {
-//   if (!text) return;
-
-//   if (currentAudio) {
-//     currentAudio.pause();
-//     currentAudio.currentTime = 0;
-//     currentAudio = null;
-//   }
-
-//   try {
-//     const response = await axios.post(`${API_BASE_URL}/speak`, { text });
-//     if (response.data?.audio) {
-//       const audio = new Audio(`data:audio/mp3;base64,${response.data.audio}`);
-//       currentAudio = audio;
-//       audio.onended = () => { if (currentAudio === audio) currentAudio = null; };
-//       audio.onerror = () => { if (currentAudio === audio) currentAudio = null; };
-//       audio.play().catch(() => { });
-//     }
-//   } catch (error) {
-//     console.error('[Speak] Backend voice failed:', error);
-//   }
-//   // No await — fire and forget
-// }
-
-async function speak(text, rate = 0.85) {
+async function speak(text) {
   if (!text) return;
-  // if (speakInProgress) return;   // ← YEH ADD KARO (duplicate call block)
 
+  // Cancel ongoing speech
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
     currentAudio = null;
   }
-
-  speakInProgress = true;   // ← YEH ADD KARO
 
   try {
     const response = await axios.post(`${API_BASE_URL}/speak`, { text });
     if (response.data?.audio) {
       const audio = new Audio(`data:audio/mp3;base64,${response.data.audio}`);
       currentAudio = audio;
-      audio.onended = () => {
-        if (currentAudio === audio) currentAudio = null;
-        speakInProgress = false;   // ← YEH ADD KARO
-      };
-      audio.onerror = () => {
-        if (currentAudio === audio) currentAudio = null;
-        speakInProgress = false;   // ← YEH ADD KARO
-      };
-      audio.play().catch(() => { speakInProgress = false; });   // ← catch mein bhi add karo
-    } else {
-      speakInProgress = false;   // ← response mein audio na ho tab
+
+      // Wait until audio FULLY finishes before resolving
+      await new Promise((resolve) => {
+        audio.onended = () => {
+          if (currentAudio === audio) currentAudio = null;
+          resolve();
+        };
+        audio.onerror = () => {
+          if (currentAudio === audio) currentAudio = null;
+          resolve();
+        };
+        audio.play().catch(() => {
+          if (currentAudio === audio) currentAudio = null;
+          resolve();
+        });
+      });
     }
   } catch (error) {
     console.error('[Speak] Backend voice failed:', error);
-    speakInProgress = false;   // ← error pe reset
   }
 }
 
-// Function to cancel any ongoing speech
 function cancelSpeech() {
   if (currentAudio) {
     currentAudio.pause();
     currentAudio.currentTime = 0;
     currentAudio = null;
   }
-  speakInProgress = false;
 }
 
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function normalizeQuestions(activityId, questions) {
+  if (!questions || questions.length === 0) return null;
+  if (activityId === 9) {
+    return questions.map(q => ({ _llmEmoji: q.emoji || '', answer: q.answer || 'Cat' }));
+  }
+  if (activityId === 10) {
+    return questions.map(q => ({
+      display: q.display || '🍎🍎',
+      answer: String(q.answer || '2'),
+      count: q.count != null ? q.count : null,
+      addend1: q.addend1 != null ? q.addend1 : null,
+      addend2: q.addend2 != null ? q.addend2 : null,
+    }));
+  }
+  if (activityId === 11) {
+    return questions.map(q => ({
+      pattern: q.pattern || '🔴 → 🔵 → ?',
+      answer: q.answer || 'Red',
+      hint: q.hint || q.answer || 'Red',
+    }));
+  }
+  if (activityId === 12) {
+    return questions.map(q => {
+      if (q.type === 'pattern') return { pattern: q.pattern, answer: q.answer, hint: q.hint || q.answer };
+      if (q.type === 'count') return {
+        display: q.display, answer: String(q.answer),
+        count: q.count != null ? q.count : null,
+        addend1: q.addend1 != null ? q.addend1 : null,
+        addend2: q.addend2 != null ? q.addend2 : null,
+      };
+      if (q.emoji) return { _llmEmoji: q.emoji, answer: q.answer || q.word || 'Dog' };
+      return q.answer || q.word || 'Dog';
+    });
+  }
+  return questions;
+}
+
+// ── Card components ───────────────────────────────────────────────────────────
 function PictureGuessCard({ word, emoji, mimiSaying, phase, listening, transcript }) {
   const displayEmoji = emoji || WORD_EMOJIS[word] || '🖼️';
   return (
@@ -6934,65 +6929,6 @@ function PatternCard({ item, mimiSaying, phase, listening, transcript }) {
   );
 }
 
-function normalizeQuestions(activityId, questions) {
-  if (!questions || questions.length === 0) return null;
-
-  if (activityId === 9) {
-    return questions.map(q => ({
-      _llmEmoji: q.emoji || '',
-      answer: q.answer || 'Cat',
-    }));
-  }
-
-  if (activityId === 10) {
-    return questions.map(q => ({
-      display: q.display || '🍎🍎',
-      answer: String(q.answer || '2'),
-      count: q.count != null ? q.count : null,
-      addend1: q.addend1 != null ? q.addend1 : null,
-      addend2: q.addend2 != null ? q.addend2 : null,
-    }));
-  }
-
-  if (activityId === 11) {
-    return questions.map(q => ({
-      pattern: q.pattern || '🔴 → 🔵 → ?',
-      answer: q.answer || 'Red',
-      hint: q.hint || q.answer || 'Red',
-    }));
-  }
-
-  if (activityId === 12) {
-    return questions.map(q => {
-      if (q.type === 'pattern') {
-        return { pattern: q.pattern, answer: q.answer, hint: q.hint || q.answer };
-      }
-      if (q.type === 'count') {
-        return {
-          display: q.display,
-          answer: String(q.answer),
-          count: q.count != null ? q.count : null,
-          addend1: q.addend1 != null ? q.addend1 : null,
-          addend2: q.addend2 != null ? q.addend2 : null,
-        };
-      }
-      if (q.emoji) return { _llmEmoji: q.emoji, answer: q.answer || q.word || 'Dog' };
-      return q.answer || q.word || 'Dog';
-    });
-  }
-
-  return questions;
-}
-
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // MimiActivityOverlay
 // ─────────────────────────────────────────────────────────────────────────────
@@ -7045,47 +6981,23 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   // ── Fetch LLM questions for activities 9-12 ──────────────────────────────
   useEffect(() => {
     if (activity.id < 9) return;
-
     let cancelled = false;
     setLoadingQuestions(true);
-
     const sessionSeed = Math.random().toString(36).slice(2, 8);
     const count = difficulty === 'hard' ? 8 : 6;
-
-    console.log(`[LLM Questions] Fetching for activity=${activity.id} difficulty=${difficulty} seed=${sessionSeed}`);
-
     axios.post(API_ENDPOINTS.GENERATE_QUESTIONS, {
-      activity_id: activity.id,
-      difficulty: difficulty,
-      count: count,
-      session_seed: sessionSeed,
+      activity_id: activity.id, difficulty, count, session_seed: sessionSeed,
     })
       .then(res => {
         if (cancelled) return;
-        console.log('[LLM Questions] Raw response:', res.data);
         const qs = res.data?.questions;
-        const err = res.data?.error;
-        if (err) console.warn('[LLM Questions] Backend error:', err);
         if (qs && qs.length > 0) {
-          console.log(`[LLM Questions] ✅ Got ${qs.length} LLM questions:`, qs);
           const normalized = normalizeQuestions(activity.id, qs);
-          if (normalized && normalized.length > 0) {
-            setWords(normalized);
-          } else {
-            console.warn('[LLM Questions] ⚠️ Normalize returned empty — using shuffled fallback');
-          }
-        } else {
-          console.warn('[LLM Questions] ⚠️ Empty/no questions from LLM — using shuffled fallback. Response:', res.data);
+          if (normalized && normalized.length > 0) setWords(normalized);
         }
       })
-      .catch(err => {
-        if (cancelled) return;
-        console.error('[LLM Questions] ❌ Network error:', err.message, '— using shuffled fallback');
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingQuestions(false);
-      });
-
+      .catch(() => { })
+      .finally(() => { if (!cancelled) setLoadingQuestions(false); });
     return () => { cancelled = true; };
   }, [activity.id, difficulty]); // eslint-disable-line
 
@@ -7105,85 +7017,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     return '';
   }
 
-  // ── FACE DETECTION ────────────────────────────────────────────────────────
-  // Camera opens → scans for a saved face → stops camera immediately on detection
-  // No demo fallback — only real saved faces can start the activity
-  // const startCameraPoll = useCallback(() => {
-  //   clearInterval(pollRef.current);
-
-  //   // Tell backend to open camera and start scanning
-  //   axios.get(API_ENDPOINTS.START_FACE_DETECT).catch(() => {});
-
-  //   pollRef.current = setInterval(async () => {
-  //     if (phaseRef.current !== 'waiting') return;
-  //     try {
-  //       const res  = await axios.get(API_ENDPOINTS.GET_STATUS);
-  //       const data = res.data;
-
-  //       if (data.warning === 'too_close') {
-  //         setWarningMsg('⚠️ Too close! Please step back.');
-  //         setShowWarning(true);
-  //         setTimeout(() => setShowWarning(false), 2500);
-  //         return;
-  //       }
-
-  //       if (data.person) {
-  //         const name = data.person.replace(/_/g, ' ').trim();
-  //         if (seenRef.current.has(name.toLowerCase())) return; // already did this student
-
-  //         // Stop camera immediately — not needed until next student
-  //         clearInterval(pollRef.current);
-  //         pollRef.current = null;
-  //         axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => {});
-
-  //         setStudentName(name);
-  //         setMimiVideo(mimiWaveVideo);
-  //         setPhase('intro');
-  //       }
-  //     } catch {}
-  //   }, 300);
-  // }, []); // eslint-disable-line
-
-  // const startCameraPoll = useCallback((openCamera = true) => {
-  //   clearInterval(pollRef.current);
-
-  //   if (openCamera) {
-  //     axios.get(API_ENDPOINTS.START_FACE_DETECT).catch(() => { });
-  //   }
-
-  //   pollRef.current = setInterval(async () => {
-  //     if (phaseRef.current !== 'waiting') return;
-  //     try {
-  //       const res = await axios.get(API_ENDPOINTS.GET_STATUS);
-  //       const data = res.data;
-
-  //       if (data.warning === 'too_close') {
-  //         setWarningMsg('⚠️ Too close! Please step back.');
-  //         setShowWarning(true);
-  //         setTimeout(() => setShowWarning(false), 2500);
-  //         return;
-  //       }
-
-  //       if (data.person) {
-  //         const name = data.person.replace(/_/g, ' ').trim();
-  //         if (seenRef.current.has(name.toLowerCase())) return;
-
-  //         clearInterval(pollRef.current);
-  //         pollRef.current = null;
-  //         axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => { });
-
-  //         setStudentName(name);
-  //         setMimiVideo(mimiWaveVideo);
-  //         setPhase('intro');
-  //       }
-  //     } catch { }
-  //   }, 300);
-  // }, []); // eslint-disable-line
-
+  // ── Face detection — frontend sends frames to backend ────────────────────
   const startCameraPoll = useCallback((openCamera = true) => {
     clearInterval(pollRef.current);
-
-    // Chat jaisa — frontend khud webcam se frame bhejta hai /process-frame pe
     const videoEl = document.createElement('video');
     const canvasEl = document.createElement('canvas');
 
@@ -7191,7 +7027,6 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       .then(stream => {
         videoEl.srcObject = stream;
         videoEl.play();
-
         pollRef.current = setInterval(async () => {
           if (phaseRef.current !== 'waiting') return;
           try {
@@ -7200,62 +7035,27 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
             const ctx = canvasEl.getContext('2d');
             ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
             const base64 = canvasEl.toDataURL('image/jpeg', 0.7);
-
             const res = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 });
             const data = res.data;
-
             if (data.person) {
               const name = data.person.replace(/_/g, ' ').trim();
               if (seenRef.current.has(name.toLowerCase())) return;
-
-              // Camera band karo
               clearInterval(pollRef.current);
               pollRef.current = null;
               stream.getTracks().forEach(t => t.stop());
-
               setStudentName(name);
               setMimiVideo(mimiWaveVideo);
               setPhase('intro');
             }
           } catch { }
-        }, 1200); // Chat jaisa — 1.2 seconds interval
+        }, 1200);
       })
-      .catch(err => {
-        console.error('[Activities FaceDetect] Camera error:', err);
-      });
-
+      .catch(err => { console.error('[Activities FaceDetect] Camera error:', err); });
   }, []); // eslint-disable-line
-
-  // On mount: open camera (no demo fallback — waits for a real saved face)
-  // useEffect(() => {
-  //   intentionalStopRef.current = false;
-  //   startCameraPoll(true);
-
-  //   return () => {
-  //     clearInterval(pollRef.current);
-  //     // Only stop the camera if this is a real unmount (not StrictMode remount)
-  //     // We use a small delay so StrictMode's immediate remount can restart it
-  //     setTimeout(() => {
-  //       if (!intentionalStopRef.current) return; // component remounted, don't stop
-  //       axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => { });
-  //     }, 100);
-  //   };
-  // }, []); // eslint-disable-line
-
 
   useEffect(() => {
     intentionalStopRef.current = false;
-
-    if (isParentMode) {
-      // ✅ Parent mode — camera scan karo lekin SIRF ek baar
-      // Student detect hone ke baad camera band ho jayegi
-      // aur activity shuru ho jayegi — no next student
-      startCameraPoll(true);
-    } else {
-      // Teacher mode — camera scan
-      startCameraPoll(true);
-    }
-
+    startCameraPoll(true);
     return () => {
       clearInterval(pollRef.current);
       setTimeout(() => {
@@ -7265,29 +7065,15 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     };
   }, []); // eslint-disable-line
 
-
-  // After each student: reset and open camera again for next student
   const resetForNextStudent = useCallback(() => {
-    setCurrent(0);
-    setCorrect(0);
-    correctRef.current = 0;
-    setTranscript('');
-    setLlmFeedback('');
-    setIsCorrect(null);
-    setStarsEarned(0);
-    setStudentName('');
-    setMimiVideo(mimiIdleVideo);
-    answeredRef.current = false;
-    setPhase('waiting');
-
-    // ✅ Parent mode mein next student camera nahi khulna
-    if (!isParentMode) {
-      startCameraPoll();
-    }
+    setCurrent(0); setCorrect(0); correctRef.current = 0;
+    setTranscript(''); setLlmFeedback(''); setIsCorrect(null);
+    setStarsEarned(0); setStudentName(''); setMimiVideo(mimiIdleVideo);
+    answeredRef.current = false; setPhase('waiting');
+    if (!isParentMode) startCameraPoll();
   }, [startCameraPoll, isParentMode]);
 
   useEffect(() => {
-    // Parent mode mein between_students phase aana hi nahi chahiye
     if (isParentMode) return;
     if (phase !== 'between_students') return;
     setCountdown(5);
@@ -7302,121 +7088,48 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
   useEffect(() => {
     if (phase === 'waiting' || phase === 'between_students') { setMimiVideo(mimiIdleVideo); return; }
-    if (phase === 'done') {
-      setMimiVideo(starsEarned >= 4 ? mimiHappyVideo : mimiNeutralVideo);
-      return;
-    }
+    if (phase === 'done') { setMimiVideo(starsEarned >= 4 ? mimiHappyVideo : mimiNeutralVideo); return; }
     setMimiVideo(mimiWaveVideo);
   }, [phase, starsEarned]);
 
-  // useEffect(() => {
-  //   if (phase !== 'intro') return;
-  //   const msg = `Hi ${studentName}! Let's start ${activity.name}!`;
-  //   setMimiSaying(msg);
-  //   let cancelled = false;
-  //   speak(msg).finally(() => {
-  //     if (!cancelled) {
-  //       // Small gap after speech ends before next voice starts
-  //       setTimeout(() => { if (!cancelled) setPhase('asking'); }, 400);
-  //     }
-  //   });
-  //   // Fallback: if speak takes too long, move on after 5s
-  //   const fallback = setTimeout(() => { if (!cancelled) setPhase('asking'); }, 5000);
-  //   return () => { cancelled = true; clearTimeout(fallback); };
-  // }, [phase]);
-  // 
-
+  // ── Intro phase: speak greeting, then go to asking ────────────────────────
   useEffect(() => {
     if (phase !== 'intro') return;
     const msg = `Hi ${studentName}! Let's start ${activity.name}!`;
     setMimiSaying(msg);
     let cancelled = false;
-    // speak(msg); // sirf call karo, .finally() hatao
-    // const t = setTimeout(() => { if (!cancelled) setPhase('asking'); }, 1500);
     speak(msg).finally(() => {
       if (!cancelled) setTimeout(() => { if (!cancelled) setPhase('asking'); }, 400);
     });
-    const fallback = setTimeout(() => { if (!cancelled) setPhase('asking'); }, 6000);
-    // return () => { cancelled = true; clearTimeout(t); };
+    const fallback = setTimeout(() => { if (!cancelled) setPhase('asking'); }, 8000);
     return () => { cancelled = true; clearTimeout(fallback); };
-  }, [phase]);// eslint-disable-line
+  }, [phase]); // eslint-disable-line
 
-  // useEffect(() => {
-  //   if (phase !== 'asking') return;
-  //   if (isPausedRef.current) return;
-
-  //   answeredRef.current = false;
-
-  //   const item = words[current];
-  //   let msg = '';
-
-  //   if (activity.id === 9) {
-  //     msg = `Look carefully… what do you see?`;
-  //   } else if (activity.id === 10) {
-  //     if (item?.addend1 !== undefined) {
-  //       msg = `Count them all and tell me the total!`;
-  //     } else {
-  //       msg = `Count the items and tell me how many!`;
-  //     }
-  //   } else if (activity.id === 11) {
-  //     msg = `What comes next in the pattern?`;
-  //   } else {
-  //     const label = getWordLabel(item);
-  //     msg = `Can you say… ${label}?`;
-  //   }
-
-  //   setMimiSaying(msg);
-  //   let cancelled = false;
-  //   speak(msg, 0.8).finally(() => {
-  //     // Sirf speak complete hone ke BAAD listening phase mein jao
-  //     if (!cancelled) setPhase('listening');
-  //   });
-  //   // Fallback: agar speak bahut zyada time le to 6s baad move on
-  //   const fallback = setTimeout(() => { if (!cancelled) setPhase('listening'); }, 6000);
-  //   return () => { cancelled = true; clearTimeout(fallback); };
-  // }, [phase, current]);
-  // 
+  // ── Asking phase: speak question, then go to listening ───────────────────
   useEffect(() => {
     if (phase !== 'asking') return;
     if (isPausedRef.current) return;
-
     answeredRef.current = false;
     const item = words[current];
     let msg = '';
-
-    if (activity.id === 9) {
-      msg = `Look carefully… what do you see?`;
-    } else if (activity.id === 10) {
-      if (item?.addend1 !== undefined) {
-        msg = `Count them all and tell me the total!`;
-      } else {
-        msg = `Count the items and tell me how many!`;
-      }
-    } else if (activity.id === 11) {
-      msg = `What comes next in the pattern?`;
-    } else {
-      const label = getWordLabel(item);
-      msg = `Can you say… ${label}?`;
-    }
+    if (activity.id === 9) msg = `Look carefully… what do you see?`;
+    else if (activity.id === 10) msg = item?.addend1 !== undefined ? `Count them all and tell me the total!` : `Count the items and tell me how many!`;
+    else if (activity.id === 11) msg = `What comes next in the pattern?`;
+    else msg = `Can you say… ${getWordLabel(item)}?`;
 
     setMimiSaying(msg);
-    // speak(msg); // sirf call karo
-    // Thoda delay de ke listening start ho
-    // const t = setTimeout(() => { setPhase('listening'); }, 1200);
-    // return () => clearTimeout(t);
     let cancelled = false;
     speak(msg).finally(() => {
       if (!cancelled) setTimeout(() => { if (!cancelled) setPhase('listening'); }, 300);
     });
-    const fallback = setTimeout(() => { if (!cancelled) setPhase('listening'); }, 7000);
+    const fallback = setTimeout(() => { if (!cancelled) setPhase('listening'); }, 8000);
     return () => { cancelled = true; clearTimeout(fallback); };
-  }, [phase, current]);
-  // eslint-disable-line
+  }, [phase, current]); // eslint-disable-line
 
+  // ── Listening phase: speech recognition ──────────────────────────────────
   useEffect(() => {
     if (phase !== 'listening') return;
     if (isPausedRef.current) return;
-
     setMimiSaying('I am listening… 👂');
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const item = words[current];
@@ -7424,9 +7137,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
     if (!SR) {
       setMimiSaying('🎤 Microphone not supported on this browser');
-      const t = setTimeout(() => {
-        if (!answeredRef.current) sendToLLM(answer, '');
-      }, 5000);
+      const t = setTimeout(() => { if (!answeredRef.current) sendToLLM(answer, ''); }, 5000);
       return () => clearTimeout(t);
     }
 
@@ -7434,111 +7145,64 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     rec.lang = 'en-IN';
     rec.continuous = false;
     rec.interimResults = false;
-
     rec.onstart = () => setListening(true);
-
     rec.onresult = (e) => {
       const s = e.results[0][0].transcript.trim();
-      setTranscript(s);
-      setListening(false);
-      rec.onend = null;
-      rec.onerror = null;
-      if (!answeredRef.current) {
-        answeredRef.current = true;
-        sendToLLM(answer, s);
-      }
+      setTranscript(s); setListening(false);
+      rec.onend = null; rec.onerror = null;
+      if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, s); }
     };
-
     rec.onend = () => {
       setListening(false);
-      if (!answeredRef.current) {
-        answeredRef.current = true;
-        sendToLLM(answer, '');
-      }
+      if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, ''); }
     };
-
     rec.onerror = () => {
       setListening(false);
-      if (!answeredRef.current) {
-        answeredRef.current = true;
-        sendToLLM(answer, '');
-      }
+      if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, ''); }
     };
-
     try { rec.start(); } catch (e) { console.warn('SR start error:', e); }
     recogRef.current = rec;
-
     const t = setTimeout(() => {
       try { rec.stop(); } catch { }
-      if (!answeredRef.current) {
-        answeredRef.current = true;
-        sendToLLM(answer, '');
-      }
+      if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, ''); }
     }, 7000);
-
-    return () => {
-      clearTimeout(t);
-      try { rec.stop(); } catch { }
-    };
+    return () => { clearTimeout(t); try { rec.stop(); } catch { } };
   }, [phase, current]); // eslint-disable-line
 
   async function sendToLLM(word, childSaid) {
     setPhase('checking');
     setMimiSaying('Mimi is thinking… 🧠');
-
     const heard = (childSaid || '').trim();
     if (!heard) {
       const msg = `Oops! Nothing heard. The answer was ${word}! Try next time! 💪`;
-      setLlmFeedback(msg);
-      handleResult(false, msg);
-      return;
+      setLlmFeedback(msg); handleResult(false, msg); return;
     }
-
-    // LOCAL CHECK FIRST — if it passes, mark correct immediately without calling LLM
-    // This prevents the LLM from ever overriding a clearly correct answer
     if (checkAnswerLocally(word, heard)) {
       const msg = `Wonderful! ${word} is correct! 🌟`;
-      setLlmFeedback(msg);
-      handleResult(true, msg);
-      return;
+      setLlmFeedback(msg); handleResult(true, msg); return;
     }
-
-    // Local check failed — send to LLM to handle fuzzy pronunciation cases
     try {
       const res = await axios.post(API_ENDPOINTS.ACTIVITY_CHECK, {
-        word,
-        child_said: heard,
-        activity_name: activity.name,
-        student_name: studentName,
+        word, child_said: heard, activity_name: activity.name, student_name: studentName,
       });
       const r = res.data?.result;
-      // Use LLM result, but run local check one final time as safety net
       const ok = (r?.correct === true) || checkAnswerLocally(word, heard);
       const msg = ok
         ? (r?.feedback ?? `Wonderful! ${word} is correct! 🌟`)
         : (r?.feedback ?? `Never mind! The answer was ${word}! Keep trying! 💪`);
-      setLlmFeedback(msg);
-      handleResult(ok, msg);
+      setLlmFeedback(msg); handleResult(ok, msg);
     } catch {
       const ok = checkAnswerLocally(word, heard);
-      const msg = ok
-        ? `Wonderful! ${word} is correct! 🌟`
-        : `Never mind! The answer was ${word}! Keep trying! 💪`;
-      setLlmFeedback(msg);
-      handleResult(ok, msg);
+      const msg = ok ? `Wonderful! ${word} is correct! 🌟` : `Never mind! The answer was ${word}! Keep trying! 💪`;
+      setLlmFeedback(msg); handleResult(ok, msg);
     }
   }
 
   function checkAnswerLocally(word, childSaid) {
-    // Strip trailing punctuation speech recognition adds (e.g. "Apple." -> "Apple")
     const heard = (childSaid || '').trim().replace(/[.!?,;]+$/, '').toLowerCase();
     if (!heard) return false;
     const expected = word.toLowerCase();
-
-    // Original logic: substring match in either direction
     if (heard.includes(expected) || expected.includes(heard)) return true;
-
-    // Extra: number word <-> digit  (e.g. "three" == "3", "five" == "5")
     const NUM_WORDS = {
       'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
       'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10',
@@ -7549,34 +7213,10 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     const wordForExpected = Object.keys(NUM_WORDS).find(k => NUM_WORDS[k] === expected);
     if (wordForExpected && heard.includes(wordForExpected)) return true;
     if (NUM_WORDS[expected] && heard.includes(NUM_WORDS[expected])) return true;
-
     return false;
   }
 
-  // async function handleResult(ok, feedback) {
-  //   const nc = correctRef.current + (ok ? 1 : 0);
-  //   if (ok) { setCorrect(nc); correctRef.current = nc; }
-  //   setIsCorrect(ok);
-  //   setMimiSaying(feedback);
-  //   setPhase('result');
-
-  //   await speak(feedback);  // pehle feedback voice poori sun lo
-
-  //   clearTimeout(resultTimerRef.current);
-  //   resultTimerRef.current = setTimeout(() => {
-  //     if (sessionEndedRef.current) return;
-  //     if (current + 1 < total) {
-  //       setCurrent(c => c + 1);
-  //       setIsCorrect(null);
-  //       setTranscript('');
-  //       setLlmFeedback('');
-  //       setPhase('asking');   // ab yeh feedback khatam HONE KE BAAD start hoga
-  //     } else {
-  //       finishStudent(nc);
-  //     }
-  //   }, 800);  // 3500 → 800 (kyunki ab speak ka wait ho gaya, sirf thoda gap chahiye)
-  // }
-
+  // ── handleResult: speak feedback, then go to next question ───────────────
   async function handleResult(ok, feedback) {
     const nc = correctRef.current + (ok ? 1 : 0);
     if (ok) { setCorrect(nc); correctRef.current = nc; }
@@ -7584,30 +7224,14 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setMimiSaying(feedback);
     setPhase('result');
 
-    // speak(feedback); // await hatao
-
-    // clearTimeout(resultTimerRef.current);
-    // resultTimerRef.current = setTimeout(() => {
-    //   if (sessionEndedRef.current) return;
-    //   if (current + 1 < total) {
-    //     setCurrent(c => c + 1);
-    //     setIsCorrect(null);
-    //     setTranscript('');
-    //     setLlmFeedback('');
-    //     setPhase('asking');
-    //   } else {
-    //     finishStudent(nc);
-    //   }
-    // }, 3000); // 3 second result dikhao phir next
-    clearTimeout(resultTimerRef.current);
+    // Speak feedback, THEN wait 500ms, THEN go to next
     speak(feedback).finally(() => {
+      clearTimeout(resultTimerRef.current);
       resultTimerRef.current = setTimeout(() => {
         if (sessionEndedRef.current) return;
         if (current + 1 < total) {
           setCurrent(c => c + 1);
-          setIsCorrect(null);
-          setTranscript('');
-          setLlmFeedback('');
+          setIsCorrect(null); setTranscript(''); setLlmFeedback('');
           setPhase('asking');
         } else {
           finishStudent(nc);
@@ -7615,40 +7239,27 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       }, 500);
     });
   }
+
   function finishStudent(fc, isEarly = false, skipTransition = false) {
     const attempted = isEarly ? Math.max(current, 1) : total;
     const score = Math.round((fc / attempted) * 100);
     const groupSize = Math.ceil(total / 5);
     const earned = fc === 0 ? 0 : fc === total ? 5 : Math.min(5, Math.ceil(fc / groupSize));
-
     setStarsEarned(earned);
     setPhase('done');
-
     const msg = earned === 0
       ? `Good try ${studentName}! Keep practicing! 💪`
       : `Well done ${studentName}! You earned ${earned} star${earned !== 1 ? 's' : ''}! 🎉`;
-
     setMimiSaying(msg);
     if (!skipTransition) speak(msg);
-
     seenRef.current.add(studentName.toLowerCase());
     onStudentDone({ stars: earned, score, correct: fc, total: isEarly ? current : total, studentName });
-    setSessionResults(prev => [...prev, {
-      name: studentName, stars: earned, score,
-      correct: fc, total: isEarly ? current : total
-    }]);
-
-    // ✅ Parent mode mein next student scan nahi karo
+    setSessionResults(prev => [...prev, { name: studentName, stars: earned, score, correct: fc, total: isEarly ? current : total }]);
     if (!isEarly && !skipTransition) {
       if (isParentMode) {
-        // Parent mode — sirf sessionEnded screen dikhao
-        setTimeout(() => {
-          sessionEndedRef.current = true
-          setSessionEnded(true)
-        }, 4500)
+        setTimeout(() => { sessionEndedRef.current = true; setSessionEnded(true); }, 4500);
       } else {
-        // Teacher mode — next student ke liye camera scan
-        setTimeout(() => setPhase('between_students'), 4500)
+        setTimeout(() => setPhase('between_students'), 4500);
       }
     }
   }
@@ -7656,44 +7267,32 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   function handlePause() {
     if (isPausedRef.current) return;
     try { recogRef.current?.stop(); } catch { }
-    // window.speechSynthesis?.cancel();
     cancelSpeech();
     clearTimeout(resultTimerRef.current);
-    isPausedRef.current = true;
-    setIsPaused(true);
-    setListening(false);
-    setMimiSaying('⏸️ Activity paused');
-    setMimiVideo(mimiIdleVideo);
+    isPausedRef.current = true; setIsPaused(true); setListening(false);
+    setMimiSaying('⏸️ Activity paused'); setMimiVideo(mimiIdleVideo);
   }
 
   function handleResume() {
-    isPausedRef.current = false;
-    setIsPaused(false);
-    setMimiVideo(mimiWaveVideo);
+    isPausedRef.current = false; setIsPaused(false); setMimiVideo(mimiWaveVideo);
     setPhase('idle_resume');
     setTimeout(() => setPhase('asking'), 50);
   }
 
   function handleEndClick() {
     try { recogRef.current?.stop(); } catch { }
-    // window.speechSynthesis?.cancel();
     cancelSpeech();
     clearTimeout(resultTimerRef.current);
     clearInterval(pollRef.current);
-    isPausedRef.current = true;
-    setIsPaused(true);
-    setListening(false);
-    setMimiVideo(mimiIdleVideo);
-    setMimiSaying('⏸️ Activity paused');
+    isPausedRef.current = true; setIsPaused(true); setListening(false);
+    setMimiVideo(mimiIdleVideo); setMimiSaying('⏸️ Activity paused');
     setShowEndConfirm(true);
   }
 
   function handleEndSession() {
     setShowEndConfirm(false);
-    sessionEndedRef.current = true;
-    isPausedRef.current = false;
-    clearInterval(pollRef.current);
-    clearTimeout(resultTimerRef.current);
+    sessionEndedRef.current = true; isPausedRef.current = false;
+    clearInterval(pollRef.current); clearTimeout(resultTimerRef.current);
     cancelSpeech();
     axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => { });
     if (studentName) speak(`Well done ${studentName}!`);
@@ -7703,10 +7302,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setSessionEnded(true);
   }
 
-  function handleCancelEnd() {
-    setShowEndConfirm(false);
-    handleResume();
-  }
+  function handleCancelEnd() { setShowEndConfirm(false); handleResume(); }
 
   const currentItem = words[Math.min(current, total - 1)];
   const word = getWordLabel(currentItem);
@@ -7716,16 +7312,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
   function renderWordCard() {
     if (activity.id === 9) {
-      return (
-        <PictureGuessCard
-          word={word}
-          emoji={currentItem?._llmEmoji || WORD_EMOJIS[word] || '🖼️'}
-          mimiSaying={mimiSaying}
-          phase={phase}
-          listening={listening}
-          transcript={transcript}
-        />
-      );
+      return <PictureGuessCard word={word} emoji={currentItem?._llmEmoji || WORD_EMOJIS[word] || '🖼️'} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} />;
     }
     if (activity.id === 10) {
       return <CountingCard item={currentItem} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} />;
@@ -7737,55 +7324,21 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       const sourceBadge = currentItem?._source
         ? <span className="px-3 py-1 bg-purple-100 text-purple-600 text-xs font-bold rounded-full mb-2 self-center">{currentItem._source}</span>
         : null;
-
-      if (currentItem?.pattern) {
-        return (
-          <div className="flex flex-col items-center gap-0 max-w-md w-full">
-            {sourceBadge}
-            <PatternCard item={currentItem} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} />
-          </div>
-        );
-      }
-      if (currentItem?.display) {
-        return (
-          <div className="flex flex-col items-center gap-0 max-w-md w-full">
-            {sourceBadge}
-            <CountingCard item={currentItem} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} />
-          </div>
-        );
-      }
-      if (currentItem?._llmEmoji) {
-        return (
-          <div className="flex flex-col items-center gap-0 max-w-md w-full">
-            {sourceBadge}
-            <PictureGuessCard word={word} emoji={currentItem._llmEmoji} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} />
-          </div>
-        );
-      }
-      if (currentItem?._isPicture) {
-        return (
-          <div className="flex flex-col items-center gap-0 max-w-md w-full">
-            {sourceBadge}
-            <PictureGuessCard word={word} emoji={currentItem._emoji || WORD_EMOJIS[word] || '🖼️'} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} />
-          </div>
-        );
-      }
+      if (currentItem?.pattern) return <div className="flex flex-col items-center gap-0 max-w-md w-full">{sourceBadge}<PatternCard item={currentItem} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} /></div>;
+      if (currentItem?.display) return <div className="flex flex-col items-center gap-0 max-w-md w-full">{sourceBadge}<CountingCard item={currentItem} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} /></div>;
+      if (currentItem?._llmEmoji) return <div className="flex flex-col items-center gap-0 max-w-md w-full">{sourceBadge}<PictureGuessCard word={word} emoji={currentItem._llmEmoji} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} /></div>;
+      if (currentItem?._isPicture) return <div className="flex flex-col items-center gap-0 max-w-md w-full">{sourceBadge}<PictureGuessCard word={word} emoji={currentItem._emoji || WORD_EMOJIS[word] || '🖼️'} mimiSaying={mimiSaying} phase={phase} listening={listening} transcript={transcript} /></div>;
       if (currentItem?._word) {
         const wEmoji = WORD_EMOJIS[currentItem._word] || '📖';
         return (
-          <motion.div key={`word-${current}`} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}
-            className="flex flex-col items-center gap-3 max-w-md w-full">
+          <motion.div key={`word-${current}`} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="flex flex-col items-center gap-3 max-w-md w-full">
             {sourceBadge}
-            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}
-              className="w-36 h-36 sm:w-44 sm:h-44 bg-white/95 rounded-3xl shadow-2xl flex items-center justify-center text-7xl sm:text-8xl border-4 border-purple-300">
-              {wEmoji}
-            </motion.div>
+            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }} className="w-36 h-36 sm:w-44 sm:h-44 bg-white/95 rounded-3xl shadow-2xl flex items-center justify-center text-7xl sm:text-8xl border-4 border-purple-300">{wEmoji}</motion.div>
             <div className="bg-white/90 backdrop-blur rounded-3xl px-5 sm:px-10 py-4 sm:py-5 shadow-xl border-4 border-purple-300 text-center w-full">
               <h2 className="text-3xl sm:text-5xl font-black text-purple-700 mb-2">{currentItem._word}</h2>
               <p className="text-base sm:text-lg text-purple-500 mb-2">{mimiSaying}</p>
               {phase === 'listening' && (
-                <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
-                  className="flex items-center gap-2 justify-center mt-2 bg-red-50 rounded-full px-4 sm:px-5 py-2">
+                <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 0.6, repeat: Infinity }} className="flex items-center gap-2 justify-center mt-2 bg-red-50 rounded-full px-4 sm:px-5 py-2">
                   {listening ? <Mic size={18} className="text-red-500" /> : <MicOff size={18} className="text-gray-400" />}
                   <span className="font-bold text-red-600 text-sm">{listening ? 'Say it now! 🎤' : 'Listening…'}</span>
                 </motion.div>
@@ -7799,16 +7352,12 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     }
     return (
       <motion.div key={`word-${current}`} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} className="flex flex-col items-center gap-3 sm:gap-5 max-w-md w-full">
-        <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}
-          className="w-36 h-36 sm:w-44 sm:h-44 bg-white/95 rounded-3xl shadow-2xl flex items-center justify-center text-7xl sm:text-8xl border-4 border-purple-300">
-          {emoji}
-        </motion.div>
+        <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }} className="w-36 h-36 sm:w-44 sm:h-44 bg-white/95 rounded-3xl shadow-2xl flex items-center justify-center text-7xl sm:text-8xl border-4 border-purple-300">{emoji}</motion.div>
         <div className="bg-white/90 backdrop-blur rounded-3xl px-5 sm:px-10 py-4 sm:py-5 shadow-xl border-4 border-purple-300 text-center w-full">
           <h2 className="text-3xl sm:text-5xl font-black text-purple-700 mb-2">{word}</h2>
           <p className="text-base sm:text-lg text-purple-500 mb-2">{mimiSaying}</p>
           {phase === 'listening' && (
-            <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 0.6, repeat: Infinity }}
-              className="flex items-center gap-2 justify-center mt-2 bg-red-50 rounded-full px-4 sm:px-5 py-2">
+            <motion.div animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 0.6, repeat: Infinity }} className="flex items-center gap-2 justify-center mt-2 bg-red-50 rounded-full px-4 sm:px-5 py-2">
               {listening ? <Mic size={18} className="text-red-500" /> : <MicOff size={18} className="text-gray-400" />}
               <span className="font-bold text-red-600 text-sm">{listening ? 'Say it now! 🎤' : 'Listening…'}</span>
             </motion.div>
@@ -7834,28 +7383,15 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
   if (loadingQuestions) {
     return (
-      <div className="fixed inset-0 z-50 bg-cover bg-center flex items-center justify-center px-4"
-        style={{ backgroundImage: `url(${bgImage})` }}>
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-white/95 backdrop-blur rounded-3xl px-6 sm:px-12 py-8 sm:py-10 shadow-2xl border-4 border-purple-300 text-center w-full max-w-md"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-            className="text-7xl mb-4 inline-block"
-          >🧠</motion.div>
+      <div className="fixed inset-0 z-50 bg-cover bg-center flex items-center justify-center px-4" style={{ backgroundImage: `url(${bgImage})` }}>
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white/95 backdrop-blur rounded-3xl px-6 sm:px-12 py-8 sm:py-10 shadow-2xl border-4 border-purple-300 text-center w-full max-w-md">
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }} className="text-7xl mb-4 inline-block">🧠</motion.div>
           <h2 className="text-3xl font-black text-purple-700 mb-2">Mimi is preparing…</h2>
           <p className="text-purple-500 text-lg mb-1">Creating fresh <strong>{DIFFICULTY_LABELS[difficulty]}</strong> questions!</p>
           <p className="text-gray-400 text-sm mb-4">{activity.name}</p>
           <div className="flex justify-center gap-2 mt-2">
             {[0, 1, 2].map(i => (
-              <motion.div key={i}
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }}
-                className="w-3 h-3 bg-purple-400 rounded-full"
-              />
+              <motion.div key={i} animate={{ y: [0, -10, 0] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.2 }} className="w-3 h-3 bg-purple-400 rounded-full" />
             ))}
           </div>
         </motion.div>
@@ -7865,13 +7401,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
   return (
     <div className="fixed inset-0 z-50 bg-cover bg-center overflow-hidden" style={{ backgroundImage: `url(${bgImage})` }}>
-
       {/* Difficulty badge */}
       <div className="absolute top-2 sm:top-6 right-2 sm:right-6 z-50 flex flex-col gap-2 items-end">
-        <span className={`px-2 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-black backdrop-blur border-2 ${difficulty === 'easy' ? 'bg-green-400/80 text-white border-green-600' :
-          difficulty === 'medium' ? 'bg-yellow-400/80 text-white border-yellow-600' :
-            'bg-red-400/80 text-white border-red-600'
-          }`}>
+        <span className={`px-2 sm:px-4 py-1 sm:py-2 rounded-full text-xs sm:text-sm font-black backdrop-blur border-2 ${difficulty === 'easy' ? 'bg-green-400/80 text-white border-green-600' : difficulty === 'medium' ? 'bg-yellow-400/80 text-white border-yellow-600' : 'bg-red-400/80 text-white border-red-600'}`}>
           {DIFFICULTY_LABELS[difficulty]}
         </span>
       </div>
@@ -7879,35 +7411,25 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       {/* End confirm dialog */}
       <AnimatePresence>
         {showEndConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 z-40 bg-black/50 flex items-center justify-center px-4">
-            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }}
-              className="bg-white rounded-3xl px-6 sm:px-10 py-6 sm:py-8 shadow-2xl border-4 border-red-300 text-center max-w-sm w-full mx-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-40 bg-black/50 flex items-center justify-center px-4">
+            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} exit={{ scale: 0.8 }} className="bg-white rounded-3xl px-6 sm:px-10 py-6 sm:py-8 shadow-2xl border-4 border-red-300 text-center max-w-sm w-full mx-4">
               <div className="text-4xl sm:text-5xl mb-3">⚠️</div>
               <h2 className="text-xl sm:text-2xl font-black text-red-600 mb-2">End Activity?</h2>
               <p className="text-gray-500 mb-6 text-xs sm:text-sm">Current progress will be saved and stars awarded for all students done so far.</p>
               <div className="flex gap-3 justify-center">
-                <button onClick={handleEndSession}
-                  className="px-4 sm:px-6 py-2 sm:py-3 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl shadow-lg transition-all text-sm sm:text-base">
-                  Yes, End
-                </button>
-                <button onClick={handleCancelEnd}
-                  className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-black rounded-2xl transition-all text-sm sm:text-base">
-                  Cancel
-                </button>
+                <button onClick={handleEndSession} className="px-4 sm:px-6 py-2 sm:py-3 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl shadow-lg transition-all text-sm sm:text-base">Yes, End</button>
+                <button onClick={handleCancelEnd} className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-black rounded-2xl transition-all text-sm sm:text-base">Cancel</button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Session Ended — results screen */}
+      {/* Session Ended */}
       <AnimatePresence>
         {sessionEnded && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 z-40 bg-black/70 flex items-center justify-center px-4">
-            <motion.div initial={{ scale: 0.8, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8 }}
-              className="bg-white rounded-3xl px-5 sm:px-10 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 max-w-lg w-full mx-2 sm:mx-4 max-h-[85vh] overflow-y-auto">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-40 bg-black/70 flex items-center justify-center px-4">
+            <motion.div initial={{ scale: 0.8, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8 }} className="bg-white rounded-3xl px-5 sm:px-10 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 max-w-lg w-full mx-2 sm:mx-4 max-h-[85vh] overflow-y-auto">
               <div className="text-center mb-4 sm:mb-6">
                 <div className="text-4xl sm:text-6xl mb-2">🏆</div>
                 <h2 className="text-2xl sm:text-3xl font-black text-purple-700">Activity Complete!</h2>
@@ -7918,8 +7440,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
               ) : (
                 <div className="space-y-3 mb-6">
                   {sessionResults.map((r, i) => (
-                    <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
-                      className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl border-2 border-purple-200">
+                    <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }} className="flex items-center justify-between p-4 bg-purple-50 rounded-2xl border-2 border-purple-200">
                       <div className="flex items-center gap-3">
                         <span className="text-2xl font-black text-purple-500">#{i + 1}</span>
                         <div>
@@ -7928,9 +7449,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
                         </div>
                       </div>
                       <div className="flex gap-0.5">
-                        {[...Array(5)].map((_, j) => (
-                          <Star key={j} size={20} className={j < r.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} />
-                        ))}
+                        {[...Array(5)].map((_, j) => <Star key={j} size={20} className={j < r.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'} />)}
                       </div>
                     </motion.div>
                   ))}
@@ -7939,10 +7458,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
               <div className="bg-blue-50 rounded-2xl p-4 mb-4 border border-blue-200 text-center">
                 <p className="text-blue-700 text-sm font-semibold">⭐ Stars saved to Students tab &amp; Parent portal</p>
               </div>
-              <button onClick={() => { clearInterval(pollRef.current); onClose(); }}
-                className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-black text-lg rounded-2xl shadow-lg transition-all">
-                Close
-              </button>
+              <button onClick={() => { clearInterval(pollRef.current); onClose(); }} className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-black text-lg rounded-2xl shadow-lg transition-all">Close</button>
             </motion.div>
           </motion.div>
         )}
@@ -7958,8 +7474,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       {/* Too-close warning */}
       <AnimatePresence>
         {showWarning && (
-          <motion.div initial={{ opacity: 0, scale: 0.8, y: -50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: -50 }}
-            className="absolute top-24 left-1/2 -translate-x-1/2 z-50">
+          <motion.div initial={{ opacity: 0, scale: 0.8, y: -50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.8, y: -50 }} className="absolute top-24 left-1/2 -translate-x-1/2 z-50">
             <div className="bg-red-500 text-white px-8 py-4 rounded-3xl border-4 border-red-700 shadow-2xl">
               <p className="text-2xl font-black text-center">{warningMsg}</p>
             </div>
@@ -7970,8 +7485,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       {/* Student name banner */}
       <AnimatePresence>
         {studentName && phase !== 'waiting' && phase !== 'between_students' && (
-          <motion.div initial={{ opacity: 0, y: -30, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -30 }}
-            className="absolute top-2 sm:top-6 left-1/2 -translate-x-1/2 z-40 w-max max-w-[90vw]">
+          <motion.div initial={{ opacity: 0, y: -30, scale: 0.8 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -30 }} className="absolute top-2 sm:top-6 left-1/2 -translate-x-1/2 z-40 w-max max-w-[90vw]">
             <div className="bg-white/95 backdrop-blur-lg px-4 sm:px-10 py-1.5 sm:py-4 rounded-2xl sm:rounded-3xl border-2 sm:border-4 border-purple-400 shadow-2xl">
               <h2 className="text-base sm:text-3xl font-black text-purple-700 text-center">Hi {studentName}! 👋</h2>
             </div>
@@ -7987,9 +7501,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
             <div key={i} className="flex items-center justify-between gap-2 sm:gap-3 py-1 border-b border-purple-100 last:border-0">
               <span className="text-xs sm:text-sm font-semibold text-gray-700 truncate max-w-[80px] sm:max-w-[110px]">{r.name}</span>
               <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-                {[...Array(5)].map((_, j) => (
-                  <Star key={j} size={10} className={`sm:w-3 sm:h-3 ${j < r.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-                ))}
+                {[...Array(5)].map((_, j) => <Star key={j} size={10} className={`sm:w-3 sm:h-3 ${j < r.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />)}
                 <span className="text-xs text-gray-500 ml-0.5 sm:ml-1">{r.score}%</span>
               </div>
             </div>
@@ -8005,36 +7517,26 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
             <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="bg-white/90 backdrop-blur rounded-2xl sm:rounded-3xl px-4 sm:px-12 py-5 sm:py-8 shadow-2xl border-2 sm:border-4 border-purple-300 text-center">
                 <motion.div animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 1.5, repeat: Infinity }} className="text-3xl sm:text-6xl mb-2 sm:mb-3">📷</motion.div>
-                <h2 className="text-lg sm:text-3xl font-black text-purple-700 mb-1 sm:mb-2">
-                  {sessionResults.length === 0 ? 'Who is first?' : 'Next student, please step up!'}
-                </h2>
+                <h2 className="text-lg sm:text-3xl font-black text-purple-700 mb-1 sm:mb-2">{sessionResults.length === 0 ? 'Who is first?' : 'Next student, please step up!'}</h2>
                 <p className="text-sm sm:text-lg text-purple-500">Camera is scanning — stand in front of the screen</p>
                 <p className="text-xs sm:text-sm text-gray-400 mt-1 sm:mt-2">Activity: {activity.name} · {DIFFICULTY_LABELS[difficulty]}</p>
-                {sessionResults.length > 0 && (
-                  <p className="text-xs sm:text-sm text-green-600 font-semibold mt-1 sm:mt-2">✅ {sessionResults.length} student{sessionResults.length > 1 ? 's' : ''} done so far</p>
-                )}
+                {sessionResults.length > 0 && <p className="text-xs sm:text-sm text-green-600 font-semibold mt-1 sm:mt-2">✅ {sessionResults.length} student{sessionResults.length > 1 ? 's' : ''} done so far</p>}
               </div>
             </motion.div>
           )}
 
           {phase === 'between_students' && (
-            <motion.div key="between" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="bg-white/95 backdrop-blur rounded-3xl px-5 sm:px-10 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 max-w-lg w-full">
+            <motion.div key="between" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="bg-white/95 backdrop-blur rounded-3xl px-5 sm:px-10 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 max-w-lg w-full">
               <h2 className="text-xl sm:text-3xl font-black text-purple-700 text-center mb-4">🏆 Activity Results So Far</h2>
               <div className="space-y-2 mb-6">
                 {sessionResults.map((r, i) => (
-                  <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
-                    className="flex items-center justify-between p-2 sm:p-3 bg-purple-50 rounded-2xl border border-purple-200">
+                  <motion.div key={i} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }} className="flex items-center justify-between p-2 sm:p-3 bg-purple-50 rounded-2xl border border-purple-200">
                     <div className="flex items-center gap-2">
                       <span className="text-base sm:text-lg font-black text-purple-600">#{i + 1}</span>
                       <span className="font-bold text-gray-800 text-sm sm:text-base">{r.name}</span>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2">
-                      <div className="flex gap-0.5">
-                        {[...Array(5)].map((_, j) => (
-                          <Star key={j} size={14} className={`sm:w-4 sm:h-4 ${j < r.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-                        ))}
-                      </div>
+                      <div className="flex gap-0.5">{[...Array(5)].map((_, j) => <Star key={j} size={14} className={`sm:w-4 sm:h-4 ${j < r.stars ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />)}</div>
                       <span className="text-xs sm:text-sm font-bold text-gray-600">{r.correct}/{r.total}</span>
                     </div>
                   </motion.div>
@@ -8048,8 +7550,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
           )}
 
           {phase === 'intro' && (
-            <motion.div key="intro" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-12 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 text-center max-w-lg">
+            <motion.div key="intro" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-12 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 text-center max-w-lg">
               <div className="text-4xl sm:text-6xl mb-3">🌟</div>
               <h2 className="text-2xl sm:text-4xl font-black text-purple-700 mb-2">{activity.name}</h2>
               <p className="text-base sm:text-xl text-purple-500">{mimiSaying}</p>
@@ -8063,20 +7564,16 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
           )}
 
           {phase === 'checking' && (
-            <motion.div key="checking" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-12 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 text-center max-w-md w-full">
+            <motion.div key="checking" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-12 py-6 sm:py-8 shadow-2xl border-4 border-purple-300 text-center max-w-md w-full">
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="text-4xl sm:text-6xl mb-3 inline-block">🧠</motion.div>
               <h2 className="text-xl sm:text-3xl font-black text-purple-700">Mimi AI is thinking…</h2>
             </motion.div>
           )}
 
           {phase === 'result' && (
-            <motion.div key="result" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-10 py-5 sm:py-7 shadow-2xl border-4 border-purple-300 text-center max-w-md w-full">
+            <motion.div key="result" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-10 py-5 sm:py-7 shadow-2xl border-4 border-purple-300 text-center max-w-md w-full">
               <div className="text-4xl sm:text-6xl mb-2">{isCorrect ? '🎉' : '💪'}</div>
-              <h2 className={`text-2xl sm:text-4xl font-black mb-3 ${isCorrect ? 'text-green-600' : 'text-orange-500'}`}>
-                {isCorrect ? 'That is Correct!' : 'Keep Trying!'}
-              </h2>
+              <h2 className={`text-2xl sm:text-4xl font-black mb-3 ${isCorrect ? 'text-green-600' : 'text-orange-500'}`}>{isCorrect ? 'That is Correct!' : 'Keep Trying!'}</h2>
               <div className="bg-purple-50 rounded-2xl p-3 sm:p-4 mb-2 border border-purple-200">
                 <p className="text-purple-700 text-base sm:text-lg font-medium">{llmFeedback}</p>
               </div>
@@ -8085,8 +7582,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
           )}
 
           {phase === 'done' && (
-            <motion.div key="done" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-12 py-6 sm:py-8 shadow-2xl border-4 border-yellow-300 text-center max-w-md w-full">
+            <motion.div key="done" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} className="bg-white/90 backdrop-blur rounded-3xl px-6 sm:px-12 py-6 sm:py-8 shadow-2xl border-4 border-yellow-300 text-center max-w-md w-full">
               <div className="text-4xl sm:text-6xl mb-2">🏆</div>
               <h2 className="text-2xl sm:text-4xl font-black text-yellow-600 mb-2">{correct}/{total} Correct!</h2>
               <div className="flex justify-center gap-1 mb-3">
@@ -8109,19 +7605,16 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
         <div className="absolute bottom-3 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-4">
           {studentName && !['waiting', 'between_students', 'done'].includes(phase) && (
             isPaused ? (
-              <motion.button onClick={handleResume} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-8 py-2 sm:py-4 bg-green-500 hover:bg-green-600 text-white font-black text-xs sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-green-700 transition-colors">
+              <motion.button onClick={handleResume} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-8 py-2 sm:py-4 bg-green-500 hover:bg-green-600 text-white font-black text-xs sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-green-700 transition-colors">
                 ▶ Resume <span className="text-xs font-medium opacity-70 ml-1 hidden sm:inline">[Space]</span>
               </motion.button>
             ) : (
-              <motion.button onClick={handlePause} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1 sm:gap-2 px-3 sm:px-8 py-2 sm:py-4 bg-yellow-400 hover:bg-yellow-500 text-white font-black text-xs sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-yellow-600 transition-colors">
+              <motion.button onClick={handlePause} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-8 py-2 sm:py-4 bg-yellow-400 hover:bg-yellow-500 text-white font-black text-xs sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-yellow-600 transition-colors">
                 ⏸ Pause <span className="text-xs font-medium opacity-70 ml-1 hidden sm:inline">[Space]</span>
               </motion.button>
             )
           )}
-          <motion.button onClick={handleEndClick} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-1 sm:gap-2 px-3 sm:px-8 py-2 sm:py-4 bg-red-500 hover:bg-red-600 text-white font-black text-xs sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-red-700 transition-colors">
+          <motion.button onClick={handleEndClick} whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.95 }} className="flex items-center gap-1 sm:gap-2 px-3 sm:px-8 py-2 sm:py-4 bg-red-500 hover:bg-red-600 text-white font-black text-xs sm:text-lg rounded-xl sm:rounded-2xl shadow-2xl border-2 sm:border-4 border-red-700 transition-colors">
             ⏹ End Session
           </motion.button>
         </div>
@@ -8129,10 +7622,8 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
       {/* Mimi video */}
       <div className="absolute bottom-0 right-0 sm:right-[4%] lg:right-[8%] z-10 pointer-events-none">
-        <motion.div key={mimiVideo} initial={{ scale: 0.8, opacity: 0, y: 50 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: 'spring', damping: 12, stiffness: 100 }}
-          className="w-[160px] h-[160px] sm:w-[320px] sm:h-[320px] lg:w-[560px] lg:h-[560px]" style={{ background: 'transparent', backgroundColor: 'transparent' }}>
-          <video key={mimiVideo} src={mimiVideo} autoPlay loop muted playsInline className="w-full h-full object-contain"
-            style={{ background: 'transparent', backgroundColor: 'transparent' }} />
+        <motion.div key={mimiVideo} initial={{ scale: 0.8, opacity: 0, y: 50 }} animate={{ scale: 1, opacity: 1, y: 0 }} transition={{ type: 'spring', damping: 12, stiffness: 100 }} className="w-[160px] h-[160px] sm:w-[320px] sm:h-[320px] lg:w-[560px] lg:h-[560px]" style={{ background: 'transparent', backgroundColor: 'transparent' }}>
+          <video key={mimiVideo} src={mimiVideo} autoPlay loop muted playsInline className="w-full h-full object-contain" style={{ background: 'transparent', backgroundColor: 'transparent' }} />
         </motion.div>
       </div>
     </div>
@@ -8144,7 +7635,6 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 // ─────────────────────────────────────────────────────────────────────────────
 const ActivitiesTab = ({ isParentMode = false }) => {
   const { addActivityResult } = useStars();
-
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [runningActivity, setRunningActivity] = useState(null);
@@ -8176,76 +7666,32 @@ const ActivitiesTab = ({ isParentMode = false }) => {
 
   const handleConfigureActivity = (activity) => { setSelectedActivity(activity); setShowConfigModal(true); };
 
-  // Generate a stable student ID from any real face-detected name
-  const makeStudentId = (name) => {
-    if (!name) return 'student-unknown';
-    return 'student-' + name.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  };
-
   const handleStudentDone = useCallback(async ({ stars, score, studentName }) => {
     const act = runningActivity;
     const sName = studentName ?? 'Unknown';
-
-    // ── Step 1: MongoDB se real _id lo ──────────────────────────
     let realStudentId = null;
     try {
       const res = await axios.post(API_ENDPOINTS.GET_STUDENT_ID, { name: sName });
-      if (res.data?.status === 'found') {
-        realStudentId = res.data.student_id;
-        console.log(`✅ Real MongoDB ID found: ${realStudentId}`);
-      } else {
-        console.warn(`⚠️ Student "${sName}" not found in DB — using fallback ID`);
-      }
-    } catch (e) {
-      console.warn('Could not fetch student ID from DB:', e);
-    }
-
-    // Fallback: agar DB mein na mile toh naam se string banao
-    const studentId = realStudentId ??
-      ('student-' + sName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
-
-    // ── Step 2: StarContext mein save karo ──────────────────────
-    addActivityResult({
-      studentId,
-      studentName: sName,
-      activityId: act?.id ?? 0,
-      activityName: act?.name ?? 'Activity',
-      stars,
-      score,
-    });
-
-    // ── Step 3: Backend mein save karo ─────────────────────────
+      if (res.data?.status === 'found') realStudentId = res.data.student_id;
+    } catch (e) { }
+    const studentId = realStudentId ?? ('student-' + sName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''));
+    addActivityResult({ studentId, studentName: sName, activityId: act?.id ?? 0, activityName: act?.name ?? 'Activity', stars, score });
     axios.post(`${API_BASE_URL}/save-activity-result`, {
-      student_id: studentId,
-      student_name: sName,
-      activity_id: act?.id ?? 0,
-      activity_name: act?.name ?? 'Activity',
-      stars,
-      score,
+      student_id: studentId, student_name: sName, activity_id: act?.id ?? 0, activity_name: act?.name ?? 'Activity', stars, score,
     }).catch(() => { });
-
     setLastResult({ stars, score, studentName: sName, activityName: act?.name });
     setShowBanner(true);
     setTimeout(() => setShowBanner(false), 5000);
-
   }, [addActivityResult, runningActivity]); // eslint-disable-line
+
   const handleClose = useCallback(() => setRunningActivity(null), []);
 
   return (
     <>
       {runningActivity && (
-        <MimiActivityOverlay
-          activity={runningActivity}
-          difficulty={runningDifficulty}
-          onStudentDone={handleStudentDone}
-          onClose={handleClose}
-          isParentMode={isParentMode}
-        />
+        <MimiActivityOverlay activity={runningActivity} difficulty={runningDifficulty} onStudentDone={handleStudentDone} onClose={handleClose} isParentMode={isParentMode} />
       )}
-
       <div className="space-y-6">
-
-        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-1 sm:mb-2">Learning Activities</h1>
@@ -8254,45 +7700,25 @@ const ActivitiesTab = ({ isParentMode = false }) => {
           <Button variant="primary" icon={Plus} className="self-stretch sm:self-auto">Create Custom Activity</Button>
         </div>
 
-        {/* Result banner */}
         <AnimatePresence>
           {showBanner && lastResult && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-              className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-2xl p-4 flex items-center gap-4 text-white">
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-gradient-to-r from-yellow-400 to-orange-400 rounded-2xl p-4 flex items-center gap-4 text-white">
               <div className="text-4xl">🎉</div>
               <div>
                 <p className="font-bold text-lg">{lastResult.activityName} complete!</p>
-                <p className="text-white/90">
-                  {lastResult.studentName} earned {[...Array(5)].map((_, i) => <span key={i}>{i < lastResult.stars ? '⭐' : '☆'}</span>)} — live in Students &amp; Parent portal!
-                </p>
+                <p className="text-white/90">{lastResult.studentName} earned {[...Array(5)].map((_, i) => <span key={i}>{i < lastResult.stars ? '⭐' : '☆'}</span>)} — live in Students &amp; Parent portal!</p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 !p-3 sm:!p-4">
-            <p className="text-[10px] sm:text-xs lg:text-sm text-blue-700 mb-0.5 sm:mb-1 truncate">Total Activities</p>
-            <p className="text-xl sm:text-2xl lg:text-4xl font-bold text-blue-900">{activities.length}</p>
-          </Card>
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 !p-3 sm:!p-4">
-            <p className="text-[10px] sm:text-xs lg:text-sm text-green-700 mb-0.5 sm:mb-1 truncate">Completions</p>
-            <p className="text-xl sm:text-2xl lg:text-4xl font-bold text-green-900">{activities.reduce((s, a) => s + a.studentsCompleted, 0)}</p>
-          </Card>
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 !p-3 sm:!p-4">
-            <p className="text-[10px] sm:text-xs lg:text-sm text-purple-700 mb-0.5 sm:mb-1 truncate">Avg Score</p>
-            <p className="text-xl sm:text-2xl lg:text-4xl font-bold text-purple-900">
-              {(activities.filter(a => a.avgScore > 0).reduce((s, a) => s + a.avgScore, 0) / activities.filter(a => a.avgScore > 0).length).toFixed(1)}/5
-            </p>
-          </Card>
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 !p-3 sm:!p-4">
-            <p className="text-[10px] sm:text-xs lg:text-sm text-yellow-700 mb-0.5 sm:mb-1 truncate">Avg Duration</p>
-            <p className="text-xl sm:text-2xl lg:text-4xl font-bold text-yellow-900">11m</p>
-          </Card>
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 !p-3 sm:!p-4"><p className="text-[10px] sm:text-xs lg:text-sm text-blue-700 mb-0.5 sm:mb-1 truncate">Total Activities</p><p className="text-xl sm:text-2xl lg:text-4xl font-bold text-blue-900">{activities.length}</p></Card>
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200 !p-3 sm:!p-4"><p className="text-[10px] sm:text-xs lg:text-sm text-green-700 mb-0.5 sm:mb-1 truncate">Completions</p><p className="text-xl sm:text-2xl lg:text-4xl font-bold text-green-900">{activities.reduce((s, a) => s + a.studentsCompleted, 0)}</p></Card>
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 !p-3 sm:!p-4"><p className="text-[10px] sm:text-xs lg:text-sm text-purple-700 mb-0.5 sm:mb-1 truncate">Avg Score</p><p className="text-xl sm:text-2xl lg:text-4xl font-bold text-purple-900">{(activities.filter(a => a.avgScore > 0).reduce((s, a) => s + a.avgScore, 0) / activities.filter(a => a.avgScore > 0).length).toFixed(1)}/5</p></Card>
+          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200 !p-3 sm:!p-4"><p className="text-[10px] sm:text-xs lg:text-sm text-yellow-700 mb-0.5 sm:mb-1 truncate">Avg Duration</p><p className="text-xl sm:text-2xl lg:text-4xl font-bold text-yellow-900">11m</p></Card>
         </div>
 
-        {/* Activities Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activities.map((activity, index) => (
             <motion.div key={activity.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
@@ -8300,18 +7726,11 @@ const ActivitiesTab = ({ isParentMode = false }) => {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-secondary-100 rounded-2xl flex items-center justify-center text-4xl">{activity.icon}</div>
-                    <div>
-                      <h3 className="font-bold text-text text-lg">{activity.name}</h3>
-                      <p className="text-sm text-text/60">{activity.category}</p>
-                    </div>
+                    <div><h3 className="font-bold text-text text-lg">{activity.name}</h3><p className="text-sm text-text/60">{activity.category}</p></div>
                   </div>
                   <div className="flex flex-col gap-1 items-end">
-                    {activity.id > 6 && (
-                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-black rounded-lg">NEW</span>
-                    )}
-                    {activity.id >= 9 && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-black rounded-lg">🤖 AI</span>
-                    )}
+                    {activity.id > 6 && <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-black rounded-lg">NEW</span>}
+                    {activity.id >= 9 && <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-black rounded-lg">🤖 AI</span>}
                   </div>
                 </div>
                 <p className="text-sm text-text/70 mb-4">{activity.description}</p>
@@ -8320,11 +7739,7 @@ const ActivitiesTab = ({ isParentMode = false }) => {
                     <span className="text-text/60">Difficulty:</span>
                     {(() => {
                       const d = activityDifficulty[activity.id] || 'easy';
-                      const cfg = {
-                        easy: ['bg-green-100 text-green-700', 'Easy'],
-                        medium: ['bg-yellow-100 text-yellow-700', 'Medium'],
-                        hard: ['bg-red-100 text-red-700', 'Hard'],
-                      }[d];
+                      const cfg = { easy: ['bg-green-100 text-green-700', 'Easy'], medium: ['bg-yellow-100 text-yellow-700', 'Medium'], hard: ['bg-red-100 text-red-700', 'Hard'] }[d];
                       return <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${cfg[0]}`}>{cfg[1]}</span>;
                     })()}
                   </div>
@@ -8335,11 +7750,7 @@ const ActivitiesTab = ({ isParentMode = false }) => {
                 </div>
                 <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 rounded-xl">
                   <Users size={16} className="text-text/60" />
-                  <span className="text-sm text-text/70">
-                    {activity.studentsCompleted > 0
-                      ? <><strong>{activity.studentsCompleted}</strong> completions</>
-                      : <span className="text-purple-500 font-semibold">Ready to use!</span>}
-                  </span>
+                  <span className="text-sm text-text/70">{activity.studentsCompleted > 0 ? <><strong>{activity.studentsCompleted}</strong> completions</> : <span className="text-purple-500 font-semibold">Ready to use!</span>}</span>
                   {activity.avgScore > 0 && <span className="ml-auto text-sm font-semibold text-text">⭐ {activity.avgScore}/5</span>}
                 </div>
                 <div className="flex gap-2">
@@ -8351,42 +7762,24 @@ const ActivitiesTab = ({ isParentMode = false }) => {
           ))}
         </div>
 
-        {/* Configure Modal */}
         {selectedActivity && (
           <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title={`Configure: ${selectedActivity.name}`} size="md">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-text mb-2">Difficulty Level</label>
-                <select
-                  value={activityDifficulty[selectedActivity.id] || 'easy'}
-                  onChange={e => setActivityDifficulty(prev => ({ ...prev, [selectedActivity.id]: e.target.value }))}
-                  className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400"
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
+                <select value={activityDifficulty[selectedActivity.id] || 'easy'} onChange={e => setActivityDifficulty(prev => ({ ...prev, [selectedActivity.id]: e.target.value }))} className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400">
+                  <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-text mb-2">Time Limit (minutes)</label>
-                <input type="number" defaultValue={15} className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-text mb-2">Number of Questions</label>
-                <input type="number" defaultValue={10} className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400" />
-              </div>
+              <div><label className="block text-sm font-semibold text-text mb-2">Time Limit (minutes)</label><input type="number" defaultValue={15} className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400" /></div>
+              <div><label className="block text-sm font-semibold text-text mb-2">Number of Questions</label><input type="number" defaultValue={10} className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400" /></div>
               {selectedActivity.id >= 9 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
                   <p className="text-sm text-blue-800 font-semibold mb-1">🤖 AI-Powered Activity</p>
-                  <p className="text-xs text-blue-600">
-                    This activity generates <strong>fresh questions every session</strong> using AI.
-                    Questions automatically match the selected difficulty level.
-                  </p>
+                  <p className="text-xs text-blue-600">This activity generates <strong>fresh questions every session</strong> using AI. Questions automatically match the selected difficulty level.</p>
                 </div>
               )}
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-                <p className="text-sm text-blue-800">ℹ️ These settings will apply the next time this activity is launched.</p>
-              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4"><p className="text-sm text-blue-800">ℹ️ These settings will apply the next time this activity is launched.</p></div>
               <div className="flex gap-3">
                 <Button variant="primary" className="flex-1" onClick={() => setShowConfigModal(false)}>Save Settings</Button>
                 <Button variant="outline" className="flex-1" onClick={() => setShowConfigModal(false)}>Cancel</Button>
@@ -8394,11 +7787,11 @@ const ActivitiesTab = ({ isParentMode = false }) => {
             </div>
           </Modal>
         )}
-
       </div>
     </>
   );
 };
 
 export default ActivitiesTab;
+
 
