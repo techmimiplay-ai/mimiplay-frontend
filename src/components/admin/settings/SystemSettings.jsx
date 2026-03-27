@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Card, Button } from '../../../components/shared';
 import { Save, Database, Cloud, Shield, Bell } from 'lucide-react';
@@ -20,23 +22,23 @@ const SystemSettings = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-text mb-2">System Settings</h1>
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">System Settings</h1>
         <p className="text-text/60">Configure system-wide settings</p>
       </div>
 
       {/* General Settings */}
       <Card>
-        <h2 className="text-2xl font-bold text-text mb-4 flex items-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-text mb-4 flex items-center gap-2">
           <Shield size={24} className="text-primary-600" />
           General Settings
         </h2>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl">
             <div>
               <h4 className="font-semibold text-text">Auto-Approve Teachers</h4>
               <p className="text-sm text-text/60">Automatically approve teacher registrations</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
                 checked={settings.autoApproval}
@@ -75,16 +77,16 @@ const SystemSettings = () => {
 
       {/* Notifications */}
       <Card>
-        <h2 className="text-2xl font-bold text-text mb-4 flex items-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-text mb-4 flex items-center gap-2">
           <Bell size={24} className="text-primary-600" />
           Notifications
         </h2>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-2xl">
           <div>
             <h4 className="font-semibold text-text">Email Notifications</h4>
             <p className="text-sm text-text/60">Send email notifications for important events</p>
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className="relative inline-flex items-center cursor-pointer shrink-0">
             <input
               type="checkbox"
               checked={settings.emailNotifications}
@@ -98,7 +100,7 @@ const SystemSettings = () => {
 
       {/* Backup */}
       <Card>
-        <h2 className="text-2xl font-bold text-text mb-4 flex items-center gap-2">
+        <h2 className="text-xl sm:text-2xl font-bold text-text mb-4 flex items-center gap-2">
           <Database size={24} className="text-primary-600" />
           Backup & Storage
         </h2>
