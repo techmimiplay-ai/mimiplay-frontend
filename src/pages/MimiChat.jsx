@@ -336,9 +336,9 @@ const MimiChat = () => {
           setMimiText(d.text)
           setImageUrl(d.image_url)
           setYtVideo(d.yt_video)
-          if (d.audio) {
-            playBase64Audio(d.audio);
-          }
+          // if (d.audio) {
+          //   playBase64Audio(d.audio);
+          // }
           lastAnswerRef.current = d.text
           setIsSpeaking(true)
         }
@@ -374,8 +374,37 @@ const MimiChat = () => {
   }, []) // eslint-disable-line
 
   // ── Stop session ──────────────────────────────────────────────
+  // const stopSession = useCallback(async () => {
+  //   // Pehle intervals band karo
+  //   clearInterval(pollingRef.current)
+  //   clearInterval(facePollingRef.current)
+  //   pollingRef.current = null
+  //   facePollingRef.current = null
+  //   stopWebcam()
+
+  //   try {
+  //     await axios.post(API_ENDPOINTS.MIMI_STOP_SESSION)
+  //   } catch (e) {
+  //     console.error('Stop error:', e)
+  //   }
+
+  //   try {
+  //     const res = await axios.get(API_ENDPOINTS.MIMI_CHAT_HISTORY, {
+  //       params: { student_name: studentName, session_id: sessionId }
+  //     })
+  //     const history = res.data?.chats || res.data?.history || res.data || []
+  //     if (Array.isArray(history)) {
+  //       setChatHistory(history)
+  //     }
+  //   } catch (e) {
+  //     console.error('History fetch error:', e)
+  //   }
+
+  //   setSessionState('stopped')
+  //   setIsSpeaking(false)
+  // }, [stopWebcam])
+
   const stopSession = useCallback(async () => {
-    // Pehle intervals band karo
     clearInterval(pollingRef.current)
     clearInterval(facePollingRef.current)
     pollingRef.current = null
@@ -387,10 +416,35 @@ const MimiChat = () => {
     } catch (e) {
       console.error('Stop error:', e)
     }
+    const localCount = chatHistoryRef.current.length
+
+    // ✅ DB se actual count fetch karo
+    // try {
+    //   const res = await axios.get(API_ENDPOINTS.MIMI_CHAT_HISTORY, {
+    //     params: { student_name: studentName, session_id: sessionId }
+    //   })
+    //   const chats = res.data?.chats || []
+    //   setChatHistory(chats)           // ← real count aayega
+    // } catch (e) {
+    //   console.error('History fetch error:', e)
+    // }
+    try {
+    const res = await axios.get(API_ENDPOINTS.MIMI_CHAT_HISTORY, {
+      params: { student_name: studentName, session_id: sessionId }
+    })
+    const chats = res.data?.chats || []
+    const allMessages = chats.flatMap(doc => doc.messages || [])
+    // Use whichever is bigger — DB count or local count
+    setChatHistory(allMessages.length > 0 ? allMessages : chatHistoryRef.current)
+  } catch (e) {
+    console.error('History fetch error:', e)
+    // DB failed — keep local history so count isn't 0
+    setChatHistory(chatHistoryRef.current)
+  }
 
     setSessionState('stopped')
     setIsSpeaking(false)
-  }, [stopWebcam])
+  }, [stopWebcam, studentName, sessionId])
 
   // ── Typewriter ────────────────────────────────────────────────
   useEffect(() => {
@@ -437,6 +491,56 @@ const MimiChat = () => {
   //     }
   //   } catch (e) { console.error("Audio upload error:", e) }
   // }, [studentName, sessionId, sessionState, startFaceDetection])
+  // const sendAudioToBackend = useCallback(async (blob) => {
+  //   const formData = new FormData()
+  //   formData.append('audio', blob, 'audio.webm')
+  //   formData.append('student_name', studentName)
+  //   formData.append('session_id', sessionId)
+
+  //   const endpoint = (sessionState === 'idle' || sessionState === 'stopped')
+  //     ? API_ENDPOINTS.MIMI_WAKE
+  //     : API_ENDPOINTS.MIMI_CHAT_AUDIO
+
+  //   try {
+  //     const res = await axios.post(endpoint, formData)
+
+  //     if (endpoint === API_ENDPOINTS.MIMI_WAKE && res.data.wake) {
+  //       setMimiText("Yes? I am here! Let me see who is there...")
+  //       startFaceDetection()
+
+  //     } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
+  //       const transcribedQuestion = res.data.text
+  //       const d = res.data.data
+  //       setMimiText(d.text)
+  //       setImageUrl(d.image_url)
+  //       setYtVideo(d.yt_video)
+
+  //       // DB mein save karo
+  //       try {
+  //         await axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
+  //           student_name: studentName,
+  //           session_id: sessionId,
+  //           question: transcribedQuestion,
+  //           answer: d.text,
+  //           image_url: d.image_url || '',
+  //         })
+  //         console.log("[MimiChat] Chat saved ✅")
+  //       } catch (saveErr) {
+  //         console.error("[MimiChat] Save failed:", saveErr)
+  //       }
+  //        console.log("[Audio] TRANSCRIBED:", res.data.text)
+  //       //  const d = res.data.data
+  //       //  if (d?.llm_unavailable) {
+  //       //    console.warn("[Mimi] LLM unavailable — check server API keys / logs")
+  //       //  }
+  //        setMimiText(d?.text || '')
+  //        setImageUrl(d?.image_url ?? null)
+  //        setYtVideo(d?.yt_video ?? null)
+  //     }
+  //   } catch (e) {
+  //     console.error("Audio upload error:", e)
+  //   }
+  // }, [studentName, sessionId, sessionState, startFaceDetection])
   const sendAudioToBackend = useCallback(async (blob) => {
     const formData = new FormData()
     formData.append('audio', blob, 'audio.webm')
@@ -455,14 +559,18 @@ const MimiChat = () => {
         startFaceDetection()
 
       } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
-<<<<<<< HEAD
         const transcribedQuestion = res.data.text
         const d = res.data.data
-        setMimiText(d.text)
-        setImageUrl(d.image_url)
-        setYtVideo(d.yt_video)
 
-        // DB mein save karo
+        // ✅ SIRF EK BAAR set karo
+        setMimiText(d?.text || '')
+        setImageUrl(d?.image_url ?? null)
+        setYtVideo(d?.yt_video ?? null)
+        if (d?.audio) {
+          playBase64Audio(d.audio)
+        }
+
+        // DB save
         try {
           await axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
             student_name: studentName,
@@ -472,19 +580,18 @@ const MimiChat = () => {
             image_url: d.image_url || '',
           })
           console.log("[MimiChat] Chat saved ✅")
+
+          setChatHistory(prev => [...prev, {
+            question: transcribedQuestion,
+            answer: d?.text || '',
+            time: new Date().toLocaleTimeString()
+          }])
         } catch (saveErr) {
           console.error("[MimiChat] Save failed:", saveErr)
         }
-=======
-         console.log("[Audio] TRANSCRIBED:", res.data.text)
-         const d = res.data.data
-         if (d?.llm_unavailable) {
-           console.warn("[Mimi] LLM unavailable — check server API keys / logs")
-         }
-         setMimiText(d?.text || '')
-         setImageUrl(d?.image_url ?? null)
-         setYtVideo(d?.yt_video ?? null)
->>>>>>> origin/live
+
+        console.log("[Audio] TRANSCRIBED:", res.data.text)
+        // ❌ HATAO — duplicate set calls yahan nahi chahiye
       }
     } catch (e) {
       console.error("Audio upload error:", e)
@@ -534,19 +641,16 @@ const MimiChat = () => {
     }
   }, [isRecording, isSpeaking, isTyping, sessionState, startRecording])
 
-<<<<<<< HEAD
   // ── Browser TTS ───────────────────────────────────────────────
   // useEffect(() => {
   //   if (!mimiText || isTyping || mimiText === "...") return
   //   if (!('speechSynthesis' in window)) return
 
-=======
   // ── Browser TTS (DISABLED in favor of edge-tts) ───────────────
   // useEffect(() => {
   //   if (!mimiText || isTyping || mimiText === "...") return
   //   if (!('speechSynthesis' in window)) return
   //
->>>>>>> origin/live
   //   window.speechSynthesis.cancel()
   //   const u = new SpeechSynthesisUtterance(mimiText)
   //   u.lang = 'en-US'
