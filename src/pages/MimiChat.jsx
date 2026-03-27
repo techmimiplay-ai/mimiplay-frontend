@@ -18,13 +18,6 @@
 //   // no explicit pixel shift state; we animate left/x directly
 
 //   const pollingRef = useRef(null)
-
-//   const startSession = async () => {
-//     try {
-//       await axios.get(API_ENDPOINTS.START_MIMI_SESSION)
-//       setSessionState('running')
-//       startPolling()
-//     } catch (e) {
 //       console.error(e)
 //     }
 //   }
@@ -238,6 +231,19 @@ const MimiChat = () => {
   const mediaRecorderRef = useRef(null)
   const [isRecording, setIsRecording] = useState(false)
 
+  // ── Utils ────────────────────────────────────────────────────
+  const playBase64Audio = useCallback((base64) => {
+    if (!base64) return;
+    try {
+      const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+      audio.onplay = () => setIsSpeaking(true);
+      audio.onended = () => setIsSpeaking(false);
+      audio.play();
+    } catch (e) {
+      console.error("Error playing returned audio:", e);
+    }
+  }, []);
+
   useEffect(() => {
     chatHistoryRef.current = chatHistory
   }, [chatHistory])
@@ -330,11 +336,14 @@ const MimiChat = () => {
           setMimiText(d.text)
           setImageUrl(d.image_url)
           setYtVideo(d.yt_video)
+          if (d.audio) {
+            playBase64Audio(d.audio);
+          }
           lastAnswerRef.current = d.text
           setIsSpeaking(true)
         }
       } catch (e) { console.error('Mimi poll error', e) }
-    }, 1000)
+    }, 5000)
   }, [])
 
   // ── Mimi session ─────────────────────────────────────────────
@@ -359,6 +368,7 @@ const MimiChat = () => {
         session_id: sid
       })
     }
+    // try { await axios.post(API_ENDPOINTS.START_MIMI_SESSION, {}) }
     catch (e) { console.error('Mimi session start error:', e) }
     startPolling(name, sid)
   }, []) // eslint-disable-line
@@ -445,6 +455,7 @@ const MimiChat = () => {
         startFaceDetection()
 
       } else if (endpoint === API_ENDPOINTS.MIMI_CHAT_AUDIO && res.data.status === 'success') {
+<<<<<<< HEAD
         const transcribedQuestion = res.data.text
         const d = res.data.data
         setMimiText(d.text)
@@ -464,6 +475,16 @@ const MimiChat = () => {
         } catch (saveErr) {
           console.error("[MimiChat] Save failed:", saveErr)
         }
+=======
+         console.log("[Audio] TRANSCRIBED:", res.data.text)
+         const d = res.data.data
+         if (d?.llm_unavailable) {
+           console.warn("[Mimi] LLM unavailable — check server API keys / logs")
+         }
+         setMimiText(d?.text || '')
+         setImageUrl(d?.image_url ?? null)
+         setYtVideo(d?.yt_video ?? null)
+>>>>>>> origin/live
       }
     } catch (e) {
       console.error("Audio upload error:", e)
@@ -513,11 +534,19 @@ const MimiChat = () => {
     }
   }, [isRecording, isSpeaking, isTyping, sessionState, startRecording])
 
+<<<<<<< HEAD
   // ── Browser TTS ───────────────────────────────────────────────
   // useEffect(() => {
   //   if (!mimiText || isTyping || mimiText === "...") return
   //   if (!('speechSynthesis' in window)) return
 
+=======
+  // ── Browser TTS (DISABLED in favor of edge-tts) ───────────────
+  // useEffect(() => {
+  //   if (!mimiText || isTyping || mimiText === "...") return
+  //   if (!('speechSynthesis' in window)) return
+  //
+>>>>>>> origin/live
   //   window.speechSynthesis.cancel()
   //   const u = new SpeechSynthesisUtterance(mimiText)
   //   u.lang = 'en-US'
