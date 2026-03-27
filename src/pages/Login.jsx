@@ -374,7 +374,10 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/login`, {
+      const loginUrl = `${API_BASE_URL}/api/login`;
+      console.log("[Login] Attempting call to:", loginUrl);
+      
+      const res = await fetch(loginUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
