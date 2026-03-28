@@ -168,7 +168,6 @@ const MimiCharacter = ({
         )}
       </div>
       
-      {/* Character shadow - REMOVED for full screen */}
     </motion.div>
   );
 };

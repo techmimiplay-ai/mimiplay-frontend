@@ -197,6 +197,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { API_ENDPOINTS } from '../config'
+import { ListeningIndicator } from '../components/mimi/ui-elements'
 
 import bgImage from '../assets/images/mimi/bg.jpg'
 import mimiIdleVideo from '../assets/images/mimi/mimiidell_nobg.webm'
@@ -218,6 +219,7 @@ const MimiChat = () => {
   const [isSpeaking, setIsSpeaking] = useState(false) // ← Mimi bol rahi hai?
   const [chatHistory, setChatHistory] = useState([])
   const [lastQuestion, setLastQuestion] = useState('') // ← current question track
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false) // ← Listening for backend response
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -332,7 +334,10 @@ const MimiChat = () => {
       try {
         const res = await axios.get(API_ENDPOINTS.GET_MIMI_STATUS)
         const d = res.data
-        if (d.text && d.text !== "Thinking..." && d.text !== lastAnswerRef.current) {
+        // Show listening indicator while waiting for response
+        if (d.text === "Thinking..." || !d.text) {
+          setIsWaitingForResponse(true)
+        } else if (d.text && d.text !== "Thinking..." && d.text !== lastAnswerRef.current) {
           setMimiText(d.text)
           setImageUrl(d.image_url)
           setYtVideo(d.yt_video)
@@ -341,6 +346,7 @@ const MimiChat = () => {
           // }
           lastAnswerRef.current = d.text
           setIsSpeaking(true)
+          setIsWaitingForResponse(false) // Hide listening indicator when response arrives
         }
       } catch (e) { console.error('Mimi poll error', e) }
     }, 5000)
@@ -808,6 +814,9 @@ const MimiChat = () => {
             autoPlay loop muted playsInline
             className="w-full h-full object-contain" />
         </div>
+
+        {/* ── Listening Indicator ─────────────────────────────── */}
+        {isWaitingForResponse && <ListeningIndicator isListening={true} />}
 
         {/* ── Response Box — RIGHT ────────────────────────────── */}
         <div className="flex-1 flex flex-col justify-center z-20 pr-6 pb-8 pl-4"

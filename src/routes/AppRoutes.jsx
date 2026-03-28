@@ -28,7 +28,11 @@ const ProtectedRoute = ({ element, allowedRoles }) => {
   const role  = localStorage.getItem('role');
 
   if (!token) return <Navigate to="/login" replace />;                    // Login nahi = login pe bhejo
-  if (!allowedRoles.includes(role)) return <Navigate to="/login" replace />; // Wrong role = login pe bhejo
+
+  // If allowedRoles is provided, enforce role check too.
+  if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    return <Navigate to="/login" replace />; // Wrong role = login pe bhejo
+  }
 
   return element;
 };
@@ -45,8 +49,8 @@ const AppRoutes = () => {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       
       {/* Student/TV Interface (Mimi) */}
-      <Route path="/student" element={<StudentInterface />} />
-      <Route path="/mimi-chat" element={<MimiChat />} />
+      <Route path="/student" element={<ProtectedRoute element={<StudentInterface />} />} />
+      <Route path="/mimi-chat" element={<ProtectedRoute element={<MimiChat />} />} />
       
       {/* Teacher Dashboard */}
       {/* <Route path="/teacher/*" element={<TeacherDashboard />} /> */}

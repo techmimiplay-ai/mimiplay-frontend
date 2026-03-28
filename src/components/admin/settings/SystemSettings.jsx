@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Card, Button } from '../../../components/shared';
 import { Save, Database, Cloud, Shield, Bell } from 'lucide-react';

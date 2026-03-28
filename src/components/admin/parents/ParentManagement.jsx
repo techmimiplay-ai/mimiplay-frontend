@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
 import { Search, CheckCircle, XCircle, Eye, Mail, Phone, User } from 'lucide-react';
