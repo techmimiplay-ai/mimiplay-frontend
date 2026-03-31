@@ -10,20 +10,22 @@ const AdminDashboard = () => {
 
   const [stats, setStats] = useState({});
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [systemStats, setSystemStats] = useState([]);
 
-  const recentActivity = [
-    { action: 'New teacher registered', user: 'Mr. Rahul Verma', time: '2 hours ago', type: 'info' },
-    { action: 'Parent approved', user: 'Mrs. Priya Shah', time: '3 hours ago', type: 'success' },
-    { action: 'Student added', user: 'Rohan Kumar (Roll: 045)', time: '5 hours ago', type: 'success' },
-    { action: 'New parent registered', user: 'Mr. Vikram Patel', time: '1 day ago', type: 'info' },
-  ];
+  // const recentActivity = [
+  //   { action: 'New teacher registered', user: 'Mr. Rahul Verma', time: '2 hours ago', type: 'info' },
+  //   { action: 'Parent approved', user: 'Mrs. Priya Shah', time: '3 hours ago', type: 'success' },
+  //   { action: 'Student added', user: 'Rohan Kumar (Roll: 045)', time: '5 hours ago', type: 'success' },
+  //   { action: 'New parent registered', user: 'Mr. Vikram Patel', time: '1 day ago', type: 'info' },
+  // ];
 
-  const systemStats = [
-    { label: 'API Response Time', value: '45ms', status: 'good' },
-    { label: 'Database Load', value: '23%', status: 'good' },
-    { label: 'Storage Used', value: '2.4 GB', status: 'good' },
-    { label: 'Active Sessions', value: '12', status: 'good' },
-  ];
+  // const systemStats = [
+  //   { label: 'API Response Time', value: '45ms', status: 'good' },
+  //   { label: 'Database Load', value: '23%', status: 'good' },
+  //   { label: 'Storage Used', value: '2.4 GB', status: 'good' },
+  //   { label: 'Active Sessions', value: '12', status: 'good' },
+  // ];
 
   useEffect(() => {
     fetchDashboardData();

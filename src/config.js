@@ -45,6 +45,7 @@ export const API_ENDPOINTS = {
   PROCESS_FRAME:        `${API_BASE_URL}/process-frame`,                  // ← NEW: send frame for recognition
   REGISTER_FACE:       `${API_BASE_URL}/register-face`,        // ← NEW: save new student face
   GET_STUDENT_ID:       `${API_BASE_URL}/get-student-id-by-name`,  // ← YE ADD KARO
+  SPEAK:                `${API_BASE_URL}/speak`,                           // ← NEW: backend voice synthesis
   // MIMI_SAVE_CHAT:    `${API_BASE_URL}/api/mimi/save-chat`,
   MIMI_CHAT_HISTORY: `${API_BASE_URL}/api/mimi/chat-history`,
   MIMI_STOP_SESSION: `${API_BASE_URL}/api/mimi/stop-session`,

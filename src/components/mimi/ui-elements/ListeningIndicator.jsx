@@ -8,7 +8,7 @@ const ListeningIndicator = ({ isListening = true, className = '' }) => {
       initial={{ opacity: 0, scale: 0 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0 }}
-      className={`fixed bottom-10 left-1/2 -translate-x-1/2 ${className}`}
+      className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 ${className}`}
       style={{ zIndex: 50 }}
     >
       <div className="relative">

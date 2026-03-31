@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { API_BASE_URL } from '../../../config';
 import { Card, Button } from '../../../components/shared';
 import { Save, Database, Cloud, Shield, Bell } from 'lucide-react';
 
@@ -11,9 +13,43 @@ const SystemSettings = () => {
     sessionTimeout: 30,
     debugMode: false
   });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    alert('Settings saved successfully!');
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${API_BASE_URL}/api/admin/settings`);
+      if (res.data?.status === 'success') {
+        setSettings(res.data.settings);
+      }
+    } catch (err) {
+      console.error('Settings fetch error:', err);
+      // Keep default settings if API fails
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const res = await axios.post(`${API_BASE_URL}/api/admin/settings`, settings);
+      if (res.data?.status === 'success') {
+        alert('Settings saved successfully!');
+      } else {
+        alert('Failed to save settings');
+      }
+    } catch (err) {
+      console.error('Settings save error:', err);
+      alert('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -120,8 +156,8 @@ const SystemSettings = () => {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <Button variant="primary" icon={Save} size="lg" onClick={handleSave}>
-          Save All Settings
+        <Button variant="primary" icon={Save} size="lg" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save All Settings'}
         </Button>
       </div>
     </div>

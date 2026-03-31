@@ -146,10 +146,12 @@
 
 // export default TeacherDashboard;
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Home, Users, BarChart, CheckSquare, BookOpen, Settings, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+import { API_BASE_URL } from '../../config';
 
 // Teacher Pages
 import TeacherHome from '../../components/teacher/dashboard/TeacherHome';
@@ -162,6 +164,29 @@ import SettingsTab from '../../components/teacher/settings/SettingsTab';
 const TeacherDashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [teacherProfile, setTeacherProfile] = useState({ name: 'Teacher', class: 'Class' });
+
+  const teacherId = localStorage.getItem('userId') || localStorage.getItem('user_id');
+
+  useEffect(() => {
+    if (!teacherId) return;
+    fetchTeacherProfile();
+  }, [teacherId]);
+
+  const fetchTeacherProfile = async () => {
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/teacher/profile?teacher_id=${teacherId}`);
+      if (res.data?.status === 'success') {
+        const p = res.data.profile;
+        setTeacherProfile({
+          name: p.fullName || p.name || 'Teacher',
+          class: p.class || 'Class'
+        });
+      }
+    } catch (err) {
+      console.error('Teacher profile fetch error:', err);
+    }
+  };
 
   const tabs = [
     { path: '/teacher/home', icon: Home, label: 'Home', color: 'pink' },
@@ -214,8 +239,8 @@ const TeacherDashboard = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {/* Profile Info - Desktop Only */}
             <div className="hidden lg:block text-right border-r-2 border-gray-100 pr-4 mr-2">
-              <p className="font-bold text-text text-sm">Mrs. Priya Singh</p>
-              <p className="text-xs text-text/60">Junior KG-A</p>
+              <p className="font-bold text-text text-sm">{teacherProfile.name}</p>
+              <p className="text-xs text-text/60">{teacherProfile.class}</p>
             </div>
 
             {/* Mimi Chat Button */}

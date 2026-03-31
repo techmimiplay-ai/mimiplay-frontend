@@ -13,14 +13,6 @@ import mimiWaveVideo from '../../../assets/images/mimi/mimiwavehand_nobg.webm';
 import mimiHappyVideo from '../../../assets/images/mimi/mimiwavehand_nobg.webm';
 import mimiNeutralVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
 
-// ── DISABLE BROWSER SPEECH SYNTHESIS COMPLETELY ──────────────────────────────
-if (window.speechSynthesis) {
-  window.speechSynthesis.speak = function (utterance) {
-    console.warn('[SpeechSynthesis] Blocked browser TTS. Use backend voice only.');
-  };
-  window.speechSynthesis.cancel();
-}
-
 // ── Emoji map ─────────────────────────────────────────────────────────────────
 const WORD_EMOJIS = {
   Apple: '🍎', Ball: '⚽', Cat: '🐱', Dog: '🐶', Elephant: '🐘', Fish: '🐟',
@@ -174,54 +166,6 @@ function buildQuiz12(difficulty) {
     ...pickN(ACTIVITY_WORDS[8][difficulty] || ACTIVITY_WORDS[8].easy, 1).map(w => tag(w, '🔷 Shapes')),
   ];
   return shuffleArray(items);
-}
-
-// ── speak() — backend voice only, waits for audio to finish ──────────────────
-let currentAudio = null;
-
-async function speak(text) {
-  if (!text) return;
-
-  // Cancel ongoing speech
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
-  }
-
-  try {
-    const response = await axios.post(`${API_BASE_URL}/speak`, { text });
-    if (response.data?.audio) {
-      const audio = new Audio(`data:audio/mp3;base64,${response.data.audio}`);
-      currentAudio = audio;
-
-      // Wait until audio FULLY finishes before resolving
-      await new Promise((resolve) => {
-        audio.onended = () => {
-          if (currentAudio === audio) currentAudio = null;
-          resolve();
-        };
-        audio.onerror = () => {
-          if (currentAudio === audio) currentAudio = null;
-          resolve();
-        };
-        audio.play().catch(() => {
-          if (currentAudio === audio) currentAudio = null;
-          resolve();
-        });
-      });
-    }
-  } catch (error) {
-    console.error('[Speak] Backend voice failed:', error);
-  }
-}
-
-function cancelSpeech() {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
-  }
 }
 
 function shuffleArray(arr) {
@@ -394,12 +338,112 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const sessionEndedRef = useRef(false);
   const isPausedRef = useRef(false);
   const answeredRef = useRef(false);
+  const currentAudioRef = useRef(null);
 
   useEffect(() => { isPausedRef.current = isPaused; }, [isPaused]);
   useEffect(() => { correctRef.current = correct; }, [correct]);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // ── Fetch LLM questions for activities 9-12 ──────────────────────────────
+  // ── Speak using backend voice API (no lock, plays directly) ───────────────
+  const speak = useCallback(async (text) => {
+    if (!text) return;
+
+    // Cancel any ongoing audio
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+
+    try {
+      const response = await axios.post(API_ENDPOINTS.SPEAK, { text });
+      if (response.data?.audio) {
+        const byteString = atob(response.data.audio);
+        const arrayBuffer = new ArrayBuffer(byteString.length);
+        const intArray = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < byteString.length; i++) {
+          intArray[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([intArray], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
+        audio.playbackRate = 1.25;
+        currentAudioRef.current = audio;
+
+        await new Promise((resolve) => {
+          audio.onended = () => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          audio.onerror = () => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          audio.play().catch(() => {
+            if (currentAudioRef.current === audio) currentAudioRef.current = null;
+            URL.revokeObjectURL(url);
+            resolve();
+          });
+        });
+      }
+    } catch (error) {
+      console.error('[Speak] Backend voice failed:', error);
+    }
+  }, []);
+
+  const cancelSpeech = useCallback(() => {
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current.currentTime = 0;
+      currentAudioRef.current = null;
+    }
+  }, []);
+
+  // ── Voice Command Detection ──────────────────────────────────────────────
+  const checkForControlWord = useCallback((transcript) => {
+    const text = (transcript || '').toLowerCase().trim();
+    if (!text) return null;
+    if (text.includes('pause') && (text.includes('alexi') || text.includes('alexa'))) return 'pause';
+    if (text.includes('resume') && (text.includes('alexi') || text.includes('alexa'))) return 'resume';
+    if ((text.includes('stop') || text.includes('bye')) && (text.includes('alexi') || text.includes('alexa'))) return 'stop';
+    return null;
+  }, []);
+
+  // ── Handle Control Commands ──────────────────────────────────────────────
+  const handleControlCommand = useCallback((command) => {
+    if (command === 'pause') {
+      if (isPausedRef.current) return;
+      try { recogRef.current?.stop(); } catch { }
+      cancelSpeech();
+      clearTimeout(resultTimerRef.current);
+      isPausedRef.current = true;
+      setIsPaused(true);
+      setListening(false);
+      setMimiSaying('⏸️ Activity paused. Say "Resume Alexi" to continue.');
+      setMimiVideo(mimiIdleVideo);
+    } else if (command === 'resume') {
+      if (!isPausedRef.current) return;
+      isPausedRef.current = false;
+      setIsPaused(false);
+      setMimiVideo(mimiWaveVideo);
+      setPhase('asking');
+    } else if (command === 'stop') {
+      if (sessionEndedRef.current) return;
+      try { recogRef.current?.stop(); } catch { }
+      cancelSpeech();
+      clearTimeout(resultTimerRef.current);
+      clearInterval(pollRef.current);
+      isPausedRef.current = true;
+      setIsPaused(true);
+      setListening(false);
+      setPhase('voice-stop');
+    }
+  }, [cancelSpeech]);
+
   useEffect(() => {
     if (activity.id < 9) return;
     let cancelled = false;
@@ -438,7 +482,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     return '';
   }
 
-  // ── Face detection — frontend sends frames to backend ────────────────────
+  // ── Face detection ────────────────────────────────────────────────────────
   const startCameraPoll = useCallback((openCamera = true) => {
     clearInterval(pollRef.current);
     const videoEl = document.createElement('video');
@@ -486,13 +530,46 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     };
   }, []); // eslint-disable-line
 
+  // ── Voice activation during waiting phase ────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'waiting') return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    let cancelled = false;
+    const rec = new SR();
+    rec.lang = 'en-IN';
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      if (cancelled) return;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const t = e.results[i][0].transcript.trim().toLowerCase();
+          if ((t.includes('hey') || t.includes('hi')) && (t.includes('alexi') || t.includes('alexa'))) {
+            console.log('[Voice] Wake word detected during waiting');
+          }
+        }
+      }
+    };
+    rec.onerror = () => { if (!cancelled) { try { rec.start(); } catch { } } };
+    try { rec.start(); } catch { }
+    return () => { cancelled = true; try { rec.stop(); } catch { } };
+  }, [phase]); // eslint-disable-line
+
   const resetForNextStudent = useCallback(() => {
     setCurrent(0); setCorrect(0); correctRef.current = 0;
     setTranscript(''); setLlmFeedback(''); setIsCorrect(null);
     setStarsEarned(0); setStudentName(''); setMimiVideo(mimiIdleVideo);
-    answeredRef.current = false; setPhase('waiting');
+    answeredRef.current = false;
+    seenRef.current.clear();
+    setPhase('waiting');
     if (!isParentMode) startCameraPoll();
   }, [startCameraPoll, isParentMode]);
+
+  useEffect(() => {
+    if (phase !== 'voice-stop') return;
+    finishStudent(correctRef.current, false, true);
+  }, [phase]); // eslint-disable-line
 
   useEffect(() => {
     if (isParentMode) return;
@@ -513,18 +590,14 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setMimiVideo(mimiWaveVideo);
   }, [phase, starsEarned]);
 
-  // ── Done phase: show confetti animation ───────────────────────────────────
   useEffect(() => {
-    if (phase !== 'done') {
-      setShowConfetti(false);
-      return;
-    }
+    if (phase !== 'done') { setShowConfetti(false); return; }
     setShowConfetti(true);
     const timeout = setTimeout(() => setShowConfetti(false), 3000);
     return () => clearTimeout(timeout);
   }, [phase]);
 
-  // ── Intro phase: speak greeting, then go to asking ────────────────────────
+  // ── Intro phase ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'intro') return;
     const msg = `Hi ${studentName}! Let's start ${activity.name}!`;
@@ -535,9 +608,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     });
     const fallback = setTimeout(() => { if (!cancelled) setPhase('asking'); }, 8000);
     return () => { cancelled = true; clearTimeout(fallback); };
-  }, [phase]); // eslint-disable-line
+  }, [phase, speak]); // eslint-disable-line
 
-  // ── Asking phase: speak question, then go to listening ───────────────────
+  // ── Asking phase ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'asking') return;
     if (isPausedRef.current) return;
@@ -556,9 +629,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     });
     const fallback = setTimeout(() => { if (!cancelled) setPhase('listening'); }, 8000);
     return () => { cancelled = true; clearTimeout(fallback); };
-  }, [phase, current]); // eslint-disable-line
+  }, [phase, current, speak]); // eslint-disable-line
 
-  // ── Listening phase: speech recognition ──────────────────────────────────
+  // ── Listening phase ───────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'listening') return;
     if (isPausedRef.current) return;
@@ -580,8 +653,12 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     rec.onstart = () => setListening(true);
     rec.onresult = (e) => {
       const s = e.results[0][0].transcript.trim();
-      setTranscript(s); setListening(false);
-      rec.onend = null; rec.onerror = null;
+      setTranscript(s);
+      setListening(false);
+      rec.onend = null;
+      rec.onerror = null;
+      const command = checkForControlWord(s);
+      if (command) { handleControlCommand(command); return; }
       if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, s); }
     };
     rec.onend = () => {
@@ -599,7 +676,10 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, ''); }
     }, 7000);
     return () => { clearTimeout(t); try { rec.stop(); } catch { } };
-  }, [phase, current]); // eslint-disable-line
+  }, [phase, current, checkForControlWord, handleControlCommand]); // eslint-disable-line
+
+  const stripEmojis = (text) => (text || '')
+    .replace(/🌟|💪|🎉|💬|🎤|👂|🧠|⏸️/g, '').trim();
 
   async function sendToLLM(word, childSaid) {
     setPhase('checking');
@@ -607,11 +687,11 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     const heard = (childSaid || '').trim();
     if (!heard) {
       const msg = `Oops! Nothing heard. The answer was ${word}! Try next time! 💪`;
-      setLlmFeedback(msg); handleResult(false, msg); return;
+      setLlmFeedback(msg); handleResult(false, stripEmojis(msg)); return;
     }
     if (checkAnswerLocally(word, heard)) {
       const msg = `Wonderful! ${word} is correct! 🌟`;
-      setLlmFeedback(msg); handleResult(true, msg); return;
+      setLlmFeedback(msg); handleResult(true, stripEmojis(msg)); return;
     }
     try {
       const res = await axios.post(API_ENDPOINTS.ACTIVITY_CHECK, {
@@ -622,11 +702,11 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       const msg = ok
         ? (r?.feedback ?? `Wonderful! ${word} is correct! 🌟`)
         : (r?.feedback ?? `Never mind! The answer was ${word}! Keep trying! 💪`);
-      setLlmFeedback(msg); handleResult(ok, msg);
+      setLlmFeedback(msg); handleResult(ok, stripEmojis(msg));
     } catch {
       const ok = checkAnswerLocally(word, heard);
       const msg = ok ? `Wonderful! ${word} is correct! 🌟` : `Never mind! The answer was ${word}! Keep trying! 💪`;
-      setLlmFeedback(msg); handleResult(ok, msg);
+      setLlmFeedback(msg); handleResult(ok, stripEmojis(msg));
     }
   }
 
@@ -648,45 +728,45 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     return false;
   }
 
-  // ── handleResult: speak feedback, then go to next question ───────────────
   async function handleResult(ok, feedback) {
     const nc = correctRef.current + (ok ? 1 : 0);
     if (ok) { setCorrect(nc); correctRef.current = nc; }
     setIsCorrect(ok);
     setMimiSaying(feedback);
     setPhase('result');
-
-    // Speak feedback, THEN wait 500ms, THEN go to next
-    speak(feedback).finally(() => {
-      clearTimeout(resultTimerRef.current);
-      resultTimerRef.current = setTimeout(() => {
-        if (sessionEndedRef.current) return;
-        if (current + 1 < total) {
-          setCurrent(c => c + 1);
-          setIsCorrect(null); setTranscript(''); setLlmFeedback('');
-          setPhase('asking');
-        } else {
-          finishStudent(nc);
-        }
-      }, 500);
-    });
+    clearTimeout(resultTimerRef.current);
+    try {
+      await speak(feedback);
+    } catch (e) {
+      console.error('[handleResult] speak error:', e);
+    }
+    if (sessionEndedRef.current) return;
+    if (current + 1 < total) {
+      setCurrent(c => c + 1);
+      setIsCorrect(null); setTranscript(''); setLlmFeedback('');
+      setPhase('asking');
+    } else {
+      finishStudent(nc);
+    }
   }
 
   function finishStudent(fc, isEarly = false, skipTransition = false) {
-    const attempted = isEarly ? Math.max(current, 1) : total;
-    const score = Math.round((fc / attempted) * 100);
-    const groupSize = Math.ceil(total / 5);
-    const earned = fc === 0 ? 0 : fc === total ? 5 : Math.min(5, Math.ceil(fc / groupSize));
+    const attempted = isEarly ? current + 1 : total;
+    const score = Math.round((fc / total) * 100);
+    const earned = fc === 0 ? 0 : Math.min(5, Math.max(1, Math.round((fc / total) * 5)));
     setStarsEarned(earned);
     setPhase('done');
-    const msg = earned === 0
+    const spokenMsg = earned === 0
+      ? `Good try ${studentName}! Keep practicing!`
+      : `Well done ${studentName}! You earned ${earned} star${earned !== 1 ? 's' : ''}!`;
+    const displayMsg = earned === 0
       ? `Good try ${studentName}! Keep practicing! 💪`
       : `Well done ${studentName}! You earned ${earned} star${earned !== 1 ? 's' : ''}! 🎉`;
-    setMimiSaying(msg);
-    if (!skipTransition) speak(msg);
+    setMimiSaying(displayMsg);
+    if (!skipTransition) speak(spokenMsg).catch(() => { });
     seenRef.current.add(studentName.toLowerCase());
-    onStudentDone({ stars: earned, score, correct: fc, total: isEarly ? current : total, studentName });
-    setSessionResults(prev => [...prev, { name: studentName, stars: earned, score, correct: fc, total: isEarly ? current : total }]);
+    onStudentDone({ stars: earned, score, correct: fc, total: total, studentName });
+    setSessionResults(prev => [...prev, { name: studentName, stars: earned, score, correct: fc, total: total }]);
     if (!isEarly && !skipTransition) {
       if (isParentMode) {
         setTimeout(() => { sessionEndedRef.current = true; setSessionEnded(true); }, 4500);
@@ -942,7 +1022,6 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       {/* Main content area */}
       <div className="absolute inset-0 flex flex-col justify-start sm:justify-center z-20 pt-16 sm:pt-0 pb-[170px] sm:pb-0 px-4 sm:px-8 lg:pl-12 lg:pr-[55%]">
         <AnimatePresence mode="wait">
-
           {phase === 'waiting' && (
             <motion.div key="waiting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <div className="bg-white/90 backdrop-blur rounded-2xl sm:rounded-3xl px-4 sm:px-12 py-5 sm:py-8 shadow-2xl border-2 sm:border-4 border-purple-300 text-center">
@@ -1023,7 +1102,6 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
               {showConfetti && <ConfettiAnimation duration={3000} density={50} />}
             </motion.div>
           )}
-
         </AnimatePresence>
       </div>
 
