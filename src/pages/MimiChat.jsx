@@ -10,7 +10,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { API_ENDPOINTS } from '../config'
 import { ListeningIndicator } from '../components/mimi/ui-elements'
 
-import bgImage       from '../assets/images/mimi/bg.jpg'
+// import bgImage       from '../assets/images/mimi/bg.jpg'
+import useMimiCustomizer from '../hooks/useMimiCustomizer'
+import MimiCustomizer from '../components/mimi/MimiCustomizer'
 import mimiIdleVideo from '../assets/images/mimi/mimiidell_nobg.webm'
 import mimiWaveVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
 
@@ -132,6 +134,7 @@ const MimiChat = () => {
   const [isRecording, setIsRecording]     = useState(false)
   const [isSpeaking, setIsSpeaking]       = useState(false)
   const [errorMsg, setErrorMsg]           = useState('')
+  const { currentBgStyle } = useMimiCustomizer()
 
   // ── Refs ──────────────────────────────────────────────────────────────────
   const videoRef            = useRef(null)
@@ -477,11 +480,15 @@ const MimiChat = () => {
   return (
     <div style={{
       position: 'relative', minHeight: '100vh', width: '100%', overflow: 'hidden',
-      backgroundImage: `url(${bgImage})`, backgroundSize: 'cover', backgroundPosition: 'center',
+      // backgroundImage: `url(${bgImage})`,
+      backgroundImage: currentBgStyle,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      // backgroundSize: 'cover', backgroundPosition: 'center',
       fontFamily: "'Nunito', 'Varela Round', 'Comic Sans MS', cursive",
     }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
-
+      <MimiCustomizer />
       {/* Soft vignette at bottom so avatar blends in */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
