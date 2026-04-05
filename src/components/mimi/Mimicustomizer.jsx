@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import useMimiCustomizer, { BACKGROUNDS, OUTFITS } from '../../hooks/Usemimicustomizer';
+import useMimiCustomizer, { BACKGROUNDS, OUTFITS } from '../../hooks/UseMimiCustomizer';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Styles (inline — no extra CSS file needed)

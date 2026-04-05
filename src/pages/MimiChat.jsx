@@ -11,7 +11,7 @@ import { API_ENDPOINTS } from '../config'
 import { ListeningIndicator } from '../components/mimi/ui-elements'
 
 // import bgImage       from '../assets/images/mimi/bg.jpg'
-import useMimiCustomizer from '../hooks/useMimiCustomizer'
+import useMimiCustomizer from '../hooks/UseMimiCustomizer'
 import MimiCustomizer from '../components/mimi/MimiCustomizer'
 import mimiIdleVideo from '../assets/images/mimi/mimiidell_nobg.webm'
 import mimiWaveVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
