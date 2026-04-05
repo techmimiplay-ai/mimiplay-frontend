@@ -3,7 +3,9 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_ENDPOINTS } from '../config';
 
-import bgImage from '../assets/images/mimi/bg.jpg';
+// import bgImage from '../assets/images/mimi/bg.jpg';
+import useMimiCustomizer from '../hooks/useMimiCustomizer';
+import MimiCustomizer from '../components/mimi/MimiCustomizer';
 
 import mimiIdleVideo    from '../assets/images/mimi/mimiidell_nobg.webm';
 import mimiWaveVideo    from '../assets/images/mimi/mimiwavehand_nobg.webm';
@@ -19,6 +21,7 @@ const StudentInterface = () => {
   const [mood, setMood]                   = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [showWarning, setShowWarning]     = useState(false);
+  const { currentBgStyle } = useMimiCustomizer();
   const [warningMessage, setWarningMessage] = useState('');
 
   // Keep refs to avoid stale closure issues inside setInterval
@@ -193,7 +196,9 @@ const StudentInterface = () => {
   return (
     <div
       className="relative min-h-screen w-full bg-cover bg-center overflow-hidden"
-      style={{ backgroundImage: `url(${bgImage})` }}
+      // style={{ backgroundImage: `url(${bgImage})` }}
+      style={{ backgroundImage: currentBgStyle, backgroundSize: 'cover', backgroundPosition: 'center' }}
+
     >
       {/* ── Wake-up button ── */}
       <div className="absolute top-8 right-8 z-50">
@@ -357,7 +362,7 @@ const StudentInterface = () => {
           />
         </motion.div>
       </div>
-
+      <MimiCustomizer />
       {/* ── Decorative elements ── */}
       {/* <AnimatePresence>
         {systemStatus !== 'idle' && (
