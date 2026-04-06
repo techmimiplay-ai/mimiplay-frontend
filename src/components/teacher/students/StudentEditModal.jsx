@@ -16,7 +16,6 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
 
   const [errors, setErrors] = useState({});
 
-  // Update form data when student changes or modal opens
   useEffect(() => {
     if (isOpen && student) {
       setFormData({
@@ -52,23 +51,14 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleFileSelect = (file) => {
-    setFormData(prev => ({
-      ...prev,
-      avatar: file
-    }));
+    setFormData(prev => ({ ...prev, avatar: file }));
   };
 
   const handleSubmit = () => {
@@ -80,11 +70,12 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit Student Information">
-      <div className="space-y-4 max-h-96 overflow-y-auto">
+      <div className="space-y-4 max-h-[70vh] overflow-y-auto">
         {/* Student Information */}
         <div className="space-y-3">
           <h4 className="font-semibold text-text text-sm">Student Details</h4>
-          <div className="grid grid-cols-2 gap-3">
+          {/* SM: stack, MD+: grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-text mb-2">Student Name</label>
               <input
@@ -94,9 +85,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
                 onChange={handleChange}
                 placeholder="Enter student name"
                 className={`w-full px-3 py-2 rounded-lg border-2 text-sm focus:outline-none ${
-                  errors.name
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-gray-200 focus:border-primary-400'
+                  errors.name ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-primary-400'
                 }`}
               />
               {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
@@ -112,9 +101,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
                 min="3"
                 max="12"
                 className={`w-full px-3 py-2 rounded-lg border-2 text-sm focus:outline-none ${
-                  errors.age
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-gray-200 focus:border-primary-400'
+                  errors.age ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-primary-400'
                 }`}
               />
               {errors.age && <p className="text-xs text-red-600 mt-1">{errors.age}</p>}
@@ -129,9 +116,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
               onChange={handleChange}
               placeholder="Enter roll number"
               className={`w-full px-3 py-2 rounded-lg border-2 text-sm focus:outline-none ${
-                errors.rollNo
-                  ? 'border-red-400 bg-red-50'
-                  : 'border-gray-200 focus:border-primary-400'
+                errors.rollNo ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-primary-400'
               }`}
             />
             {errors.rollNo && <p className="text-xs text-red-600 mt-1">{errors.rollNo}</p>}
@@ -141,13 +126,14 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
         {/* Photo Upload */}
         <div className="border-t-2 border-gray-200 pt-4">
           <h4 className="font-semibold text-text text-sm mb-3">Student Photo</h4>
-          <FileUpload 
+          <FileUpload
             accept="image/*"
             label="Upload Student Photo"
             onFileSelect={handleFileSelect}
           />
         </div>
 
+        {/* Parent Information */}
         <div className="border-t-2 border-gray-200 pt-4">
           <h4 className="font-semibold text-text text-sm mb-3">Parent Information</h4>
           <div className="space-y-3">
@@ -160,9 +146,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
                 onChange={handleChange}
                 placeholder="Enter parent name"
                 className={`w-full px-3 py-2 rounded-lg border-2 text-sm focus:outline-none ${
-                  errors.parentName
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-gray-200 focus:border-primary-400'
+                  errors.parentName ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-primary-400'
                 }`}
               />
               {errors.parentName && <p className="text-xs text-red-600 mt-1">{errors.parentName}</p>}
@@ -176,9 +160,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
                 onChange={handleChange}
                 placeholder="Enter parent email"
                 className={`w-full px-3 py-2 rounded-lg border-2 text-sm focus:outline-none ${
-                  errors.parentEmail
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-gray-200 focus:border-primary-400'
+                  errors.parentEmail ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-primary-400'
                 }`}
               />
               {errors.parentEmail && <p className="text-xs text-red-600 mt-1">{errors.parentEmail}</p>}
@@ -192,9 +174,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
                 onChange={handleChange}
                 placeholder="Enter phone number"
                 className={`w-full px-3 py-2 rounded-lg border-2 text-sm focus:outline-none ${
-                  errors.parentPhone
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-gray-200 focus:border-primary-400'
+                  errors.parentPhone ? 'border-red-400 bg-red-50' : 'border-gray-200 focus:border-primary-400'
                 }`}
               />
               {errors.parentPhone && <p className="text-xs text-red-600 mt-1">{errors.parentPhone}</p>}
@@ -204,7 +184,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 mt-6">
+      <div className="flex flex-col sm:flex-row gap-3 mt-6">
         <Button variant="outline" icon={X} onClick={onClose} fullWidth>
           Cancel
         </Button>

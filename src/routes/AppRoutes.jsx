@@ -23,6 +23,20 @@ import AdminPanel from '../pages/admin/AdminPanel';
 // 404
 import NotFound from '../pages/NotFound';
 
+const ProtectedRoute = ({ element, allowedRoles }) => {
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+
+  if (!token) return <Navigate to="/login" replace />;                    // Login nahi = login pe bhejo
+
+  // If allowedRoles is provided, enforce role check too.
+  if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
+    return <Navigate to="/login" replace />; // Wrong role = login pe bhejo
+  }
+
+  return element;
+};
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -35,20 +49,28 @@ const AppRoutes = () => {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       
       {/* Student/TV Interface (Mimi) */}
-      <Route path="/student" element={<StudentInterface />} />
-      <Route path="/mimi-chat" element={<MimiChat />} />
+      <Route path="/student" element={<ProtectedRoute element={<StudentInterface />} />} />
+      <Route path="/mimi-chat" element={<ProtectedRoute element={<MimiChat />} />} />
       
       {/* Teacher Dashboard */}
-      <Route path="/teacher/*" element={<TeacherDashboard />} />
-      <Route path="/teacher/selection" element={<TeacherSelection />} />
+      {/* <Route path="/teacher/*" element={<TeacherDashboard />} /> */}
+      {/* <Route path="/teacher/selection" element={<TeacherSelection />} /> */}
+      <Route path="/teacher/*"         element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={['teacher', 'admin']} />} />
+      <Route path="/teacher/selection" element={<ProtectedRoute element={<TeacherSelection />} allowedRoles={['teacher', 'admin']} />} />
       
       {/* Parent Portal */}
-      <Route path="/parent/*" element={<ParentPortal />} />
+      {/* <Route path="/parent/*" element={<ParentPortal />} />
       <Route path="/parent-selection" element={<ParentSelection />} />
-      <Route path="/parent/activities" element={<ParentActivities />} />
+      <Route path="/parent/activities" element={<ParentActivities />} /> */}
+       <Route path="/parent/*"          element={<ProtectedRoute element={<ParentPortal />}    allowedRoles={['parent']} />} />
+      <Route path="/parent-selection"  element={<ProtectedRoute element={<ParentSelection />} allowedRoles={['parent']} />} />
+      <Route path="/parent/activities" element={<ProtectedRoute element={<ParentActivities />} allowedRoles={['parent']} />} />
+
       
       {/* Admin Panel */}
-      <Route path="/admin/*" element={<AdminPanel />} />
+      {/* <Route path="/admin/*" element={<AdminPanel />} /> */}
+      <Route path="/admin/*" element={<ProtectedRoute element={<AdminPanel />} allowedRoles={['admin']} />} />
+
       
       {/* 404 Not Found */}
       <Route path="*" element={<NotFound />} />

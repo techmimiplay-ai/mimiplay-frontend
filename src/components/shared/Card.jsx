@@ -25,12 +25,13 @@ const Card = ({
   const paddingClass = paddings[padding] || paddings.md;
   
   const CardComponent = onClick ? motion.div : 'div';
+  const motionOptions = onClick ? { whileHover: hover ? { y: -4 } : {} } : {};
   
   return (
     <CardComponent
       className={`${baseStyles} ${paddingClass} ${shadowClass} ${hoverClass} ${className}`}
       onClick={onClick}
-      whileHover={hover && onClick ? { y: -4 } : {}}
+      {...motionOptions}
       {...props}
     >
       {children}
