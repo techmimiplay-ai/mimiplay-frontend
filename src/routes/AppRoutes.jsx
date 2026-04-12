@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import ErrorBoundary from '../components/shared/ErrorBoundary';
 
 // Auth Pages
 import { Login, Register, ForgotPassword } from '../pages';
@@ -42,7 +43,8 @@ const ProtectedRoute = ({ element, allowedRoles }) => {
 
 const AppRoutes = () => {
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/login" replace />} />
       
@@ -76,7 +78,8 @@ const AppRoutes = () => {
       
       {/* 404 Not Found */}
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </ErrorBoundary>
   );
 };
 

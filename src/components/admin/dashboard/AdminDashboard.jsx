@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button } from '../../../components/shared';
+import { Card, Button, PageLoader } from '../../../components/shared';
 import { Users, UserPlus, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -15,6 +15,7 @@ const AdminDashboard = () => {
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
@@ -30,6 +31,8 @@ const AdminDashboard = () => {
       setPendingApprovals(Array.isArray(pendingRes.data) ? pendingRes.data : []);
     } catch (error) {
       console.error('Dashboard fetch error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,6 +64,8 @@ const AdminDashboard = () => {
       setRejectingId(null);
     }
   };
+
+  if (loading) return <PageLoader variant="inline" emoji="📊" text="Loading dashboard…" />;
 
   return (
     <div className="space-y-6">

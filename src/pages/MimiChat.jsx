@@ -138,6 +138,7 @@ const MimiChat = () => {
   // ── State ─────────────────────────────────────────────────────────────────
   const [sessionState, setSessionState] = useState('idle')
   const [studentName, setStudentName]   = useState('')
+  const [studentId, setStudentId]       = useState('')
   const [sessionId, setSessionId]       = useState('')
   const [aiPhase, setAiPhase]           = useState('listening')
 
@@ -166,6 +167,7 @@ const MimiChat = () => {
   const isSpeakingRef       = useRef(false)
   const isRecordingRef      = useRef(false)
   const studentNameRef      = useRef('')
+  const studentIdRef        = useRef('')
   const sessionIdRef        = useRef('')
   const startMimiSessionRef = useRef(null)
   const isMountedRef        = useRef(true)
@@ -183,6 +185,7 @@ const MimiChat = () => {
 
   useEffect(() => { log('STATE', `sessionState → ${sessionState}`); sessionStateRef.current = sessionState }, [sessionState])
   useEffect(() => { studentNameRef.current = studentName }, [studentName])
+  useEffect(() => { studentIdRef.current   = studentId   }, [studentId])
   useEffect(() => { sessionIdRef.current   = sessionId   }, [sessionId])
   useEffect(() => { chatHistoryRef.current = chatHistory }, [chatHistory])
 
@@ -310,17 +313,19 @@ const MimiChat = () => {
         log('FACE', `person="${res.data.person}"`)
         if (res.data.person) {
           const name = res.data.person.replace(/_/g, ' ').trim()
+          const sid  = res.data.student_id || ''
           clearInterval(facePollingRef.current); facePollingRef.current = null
-          stopWebcam(); setStudentName(name)
-          startMimiSessionRef.current?.(name)
+          stopWebcam(); setStudentName(name); setStudentId(sid)
+          studentIdRef.current = sid
+          startMimiSessionRef.current?.(name, sid)
         }
       } catch (e) { log('FACE', 'PROCESS_FRAME error', e.message) }
     }, 1200)
   }, [stopWebcam])
 
   // ── Session start ─────────────────────────────────────────────────────────
-  const startMimiSession = useCallback(async (name) => {
-    log('SESSION', `startMimiSession: "${name}"`)
+  const startMimiSession = useCallback(async (name, studentObjId) => {
+    log('SESSION', `startMimiSession: "${name}" studentObjId=${studentObjId}`)
     if (sessionStateRef.current === 'running' || greetingActiveRef.current) { log('SESSION', 'skipped'); return }
     const sid = generateSessionId()
     setSessionId(sid); sessionIdRef.current = sid
@@ -331,7 +336,7 @@ const MimiChat = () => {
     setMimiText(''); setDisplayedText(''); setChatHistory([])
     setYtVideo(null); setImageUrl(null)
     try {
-      const res           = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, session_id: sid })
+      const res           = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: studentObjId, session_id: sid })
       const greetingText  = res.data.greeting_text
       const greetingAudio = res.data.greeting_audio
       log('SESSION', 'Greeting received', { greetingText })
@@ -410,7 +415,8 @@ const MimiChat = () => {
       log('AUDIO_SEND', `answer — data.text="${(res.data.data?.text||'').slice(0,60)}"`)
       log('AUDIO_SEND', `✓ using: "${responseText.slice(0,80)}" | audio=${!!responseAudio}`)
       axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
-        student_name: studentNameRef.current, session_id: sessionIdRef.current,
+        student_name: studentNameRef.current, student_id: studentIdRef.current,
+        session_id: sessionIdRef.current,
         question: transcribed, answer: responseText,
         image_url: res.data.data?.image_url || res.data.image_url || '',
       }).catch(e => log('AUDIO_SEND', 'SAVE_CHAT error', e.message))

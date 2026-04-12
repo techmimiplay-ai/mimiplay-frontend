@@ -94,17 +94,16 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
     const act = runningActivity;
     LOG.info('ActivitiesTab', 'Student done', { studentName, stars, score });
 
-    // Resolve student ID
+    // Resolve student ID from face recognition
     let studentId = null;
     try {
       const res = await axios.post(API_ENDPOINTS.GET_STUDENT_ID, { name: studentName });
       if (res.data?.status === 'found') studentId = res.data.student_id;
       LOG.info('ActivitiesTab', 'Resolved student ID', { studentId });
     } catch (e) {
-      LOG.warn('ActivitiesTab', 'ID lookup failed — using slug', e.message);
+      LOG.warn('ActivitiesTab', 'ID lookup failed', e.message);
     }
-    studentId = studentId
-      ?? `student-${studentName.toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+    if (!studentId) { LOG.warn('ActivitiesTab', 'No valid student_id — skipping save'); return; }
 
     // Save to context
     addActivityResult({

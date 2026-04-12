@@ -33,18 +33,19 @@ const ParentHome = ({ selectedChild }) => {
 
   useEffect(() => {
     if (!selectedChild?.id) return;
+    let cancelled = false;
     prevCountRef.current = 0;
-    fetchStarsData(selectedChild.id);
-    fetchAttendance(selectedChild.id, selectedChild.name);
-  }, [selectedChild?.id]);
 
-  useEffect(() => {
-    if (!selectedChild?.id) return;
-    const interval = setInterval(() => {
-      fetchStarsData(selectedChild.id);
-      fetchAttendance(selectedChild.id, selectedChild.name);
-    }, 15000);
-    return () => clearInterval(interval);
+    const run = () => {
+      if (!cancelled) {
+        fetchStarsData(selectedChild.id);
+        fetchAttendance(selectedChild.id, selectedChild.name);
+      }
+    };
+
+    run();
+    const interval = setInterval(run, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [selectedChild?.id]);
 
   const fetchStarsData = async (studentId) => {

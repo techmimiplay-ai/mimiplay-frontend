@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card } from '../../../components/shared';
+import { Button, Card, PageLoader } from '../../../components/shared';
 import { Users, BookOpen, BarChart, TrendingUp, Monitor, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -13,13 +13,6 @@ const TeacherHome = () => {
   const [loading, setLoading] = useState(true);
 
   const teacherId = localStorage.getItem('userId') || localStorage.getItem('user_id');
-
-  useEffect(() => {
-    fetchStats();
-    // Poll every 30s so Activities Today updates after a session
-    const iv = setInterval(fetchStats, 30000);
-    return () => clearInterval(iv);
-  }, []);
 
   const fetchStats = async () => {
     try {
@@ -38,16 +31,17 @@ const TeacherHome = () => {
     }
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    const run = () => { if (!cancelled) fetchStats(); };
+    run();
+    const iv = setInterval(run, 30000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, []);
+
   const handleStartSession = () => navigate('/teacher/selection');
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="text-5xl mb-3 animate-spin inline-block">⏳</div>
-        <p className="text-text/60">Loading dashboard...</p>
-      </div>
-    </div>
-  );
+  if (loading) return <PageLoader variant="inline" emoji="📊" text="Loading dashboard…" />;
 
   const firstName = stats?.teacher_name
     ? stats.teacher_name.split(' ')[0]

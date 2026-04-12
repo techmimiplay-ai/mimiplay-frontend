@@ -13,3 +13,5 @@ export { default as FileUpload } from './FileUpload';
 export { default as ComparisonChart } from './ComparisonChart';
 export { default as Calendar } from './Calendar';
 export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as PageLoader } from './PageLoader';
+export { default as ConfirmModal } from './ConfirmModal';

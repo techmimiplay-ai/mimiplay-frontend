@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 
 const FloatingElements = ({ density = 'normal' }) => {
@@ -10,8 +10,8 @@ const FloatingElements = ({ density = 'normal' }) => {
   };
   
   const count = counts[density] || counts.normal;
-  
-  const elements = Array.from({ length: count }, (_, i) => ({
+
+  const elements = useMemo(() => Array.from({ length: count }, (_, i) => ({
     id: i,
     size: Math.random() * 40 + 20,
     x: Math.random() * 100,
@@ -19,7 +19,7 @@ const FloatingElements = ({ density = 'normal' }) => {
     duration: Math.random() * 10 + 15,
     delay: Math.random() * 5,
     shape: ['circle', 'star', 'cloud'][Math.floor(Math.random() * 3)],
-  }));
+  })), [count]);
   
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">

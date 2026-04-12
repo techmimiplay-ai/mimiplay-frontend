@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Card } from '../../../components/shared';
+import { Button, Card, PageLoader } from '../../../components/shared';
 import { Download, TrendingUp, TrendingDown, BarChart3, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { API_BASE_URL } from '../../../config';
@@ -66,7 +66,7 @@ const ReportsTab = () => {
 
   const downloadReport = () => {
     if (!topPerformers.length && !activityBreakdown.length) {
-      alert('No report data to download yet.');
+      setToastMsg('No report data to download yet.');
       return;
     }
     const rows = [
@@ -87,11 +87,7 @@ const ReportsTab = () => {
   };
   const emailParents  = () => showToast('Email to parents coming soon!');
 
-  if (loading) return (
-    <div className="flex h-64 items-center justify-center">
-      <p className="text-text/60 text-lg">Loading reports...</p>
-    </div>
-  );
+  if (loading) return <PageLoader variant="inline" emoji="📊" text="Loading reports…" />;
 
   return (
     <div className="space-y-6">

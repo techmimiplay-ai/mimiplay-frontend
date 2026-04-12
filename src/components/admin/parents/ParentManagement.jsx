@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
+import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal } from '../../../components/shared';
 import { Search, CheckCircle, XCircle, Eye, Mail, Phone, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { API_BASE_URL } from '../../../config';
@@ -15,9 +15,14 @@ const ParentManagement = () => {
   const [selectedParent, setSelectedParent] = useState(null);
 
   const [parents, setParents] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [students, setStudents] = useState([]);
+  const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
+
+  const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
+  const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
 
   useEffect(() => {
     axios.get(`${API_BASE_URL}/api/admin/all-users`)
@@ -38,7 +43,8 @@ const ParentManagement = () => {
         }));
         setParents(formatted);
       })
-      .catch(err => console.error("Parents fetch error", err));
+      .catch(err => console.error("Parents fetch error", err))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -82,15 +88,17 @@ const ParentManagement = () => {
   };
 
   const handleReject = async (parent) => {
-    if (!window.confirm(`Are you sure you want to reject ${parent.name}?`)) return;
-    try {
-      await axios.delete(`${API_BASE_URL}/api/admin/reject/${parent.id}`);
-      setParents(prev => prev.filter(p => p.id !== parent.id));
-      setShowApprovalModal(false);
-    } catch (err) {
-      console.error('Reject error:', err);
-      toast('Failed to reject. Please try again.', 'error');
-    }
+    confirmAction(`Reject ${parent.name}?`, async () => {
+      closeConfirm();
+      try {
+        await axios.delete(`${API_BASE_URL}/api/admin/reject/${parent.id}`);
+        setParents(prev => prev.filter(p => p.id !== parent.id));
+        setShowApprovalModal(false);
+      } catch (err) {
+        console.error('Reject error:', err);
+        toast('Failed to reject. Please try again.', 'error');
+      }
+    });
   };
 
   const handleUpdateParent = async () => {
@@ -107,6 +115,8 @@ const ParentManagement = () => {
       toast('Update failed', 'error');
     }
   };
+
+  if (loading) return <PageLoader variant="inline" emoji="👨👩👧" text="Loading parents…" />;
 
   const stats = {
     total: parents.length,
@@ -359,6 +369,14 @@ const ParentManagement = () => {
           </div>
         </Modal>
       )}
+      <ConfirmModal
+        isOpen={confirm.open}
+        title="Are you sure?"
+        message={confirm.message}
+        confirmLabel="Yes, Proceed"
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config';
-import { Card } from '../../../components/shared';
+import { Card, PageLoader } from '../../../components/shared';
 import { CheckCircle, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -152,14 +152,7 @@ const ProgressTab = ({ selectedChild }) => {
     </div>
   );
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="text-5xl mb-3 animate-spin inline-block">⏳</div>
-        <p className="text-text/60">Loading progress...</p>
-      </div>
-    </div>
-  );
+  if (loading) return <PageLoader variant="inline" emoji="📈" text="Loading progress…" />;
 
   return (
     <div className="space-y-6">

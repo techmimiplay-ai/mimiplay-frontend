@@ -10,6 +10,7 @@ import AchievementsTab from '../../components/parent/achievements/AchievementsTa
 import ActivityLog from '../../components/parent/activity-log/ActivityLog';
 import SettingsTab from '../../components/parent/settings/SettingsTab';
 import ParentChildSelector from '../../components/parent/ParentChildSelector';
+import PageLoader from '../../components/shared/PageLoader';
 
 const ParentPortal = () => {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ const ParentPortal = () => {
     fetchMyChildren();
   }, [navigate]);
 
-  if (loading) return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  if (loading) return <PageLoader emoji="🌸" text="Loading your portal…" />;
 
   const tabs = [
     { path: '/parent/home',         icon: Home,      label: 'Home',         color: 'pink'   },

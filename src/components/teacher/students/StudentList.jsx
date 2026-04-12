@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Button, Card, Input, Modal, Avatar, FileUpload } from '../../../components/shared';
+import { Button, Card, Input, Modal, Avatar, FileUpload, PageLoader, ConfirmModal } from '../../../components/shared';
 import StudentEditModal from './StudentEditModal';
 import { Search, Plus, Edit2, Trash2, Eye, Mail, Phone, MessageSquare, Star, Camera, CheckCircle, Loader } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -77,6 +77,7 @@ const StudentList = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
   const [reviewText, setReviewText] = useState('');
  
   // ── Add form state ──────────────────────────────────────────────────────────
@@ -107,6 +108,8 @@ const StudentList = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(''); // 'adding' | 'registering_face' | ''
  
+  const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
+  const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
   const filteredStudents = students.filter(s =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.rollNo.includes(searchQuery)
@@ -157,14 +160,14 @@ const StudentList = () => {
         },
         { headers: getAuthHeaders() }
       );
- 
+
       // STEP 2: Agar photo select ki hai toh face register karo
       if (formData.avatar) {
         setSubmitStatus('registering_face');
- 
+
         try {
           const base64Image = await fileToBase64(formData.avatar);
- 
+
           const faceRes = await axios.post(
             API_ENDPOINTS.REGISTER_FACE,
             {
@@ -173,36 +176,38 @@ const StudentList = () => {
             },
             { headers: getAuthHeaders() }
           );
- 
+
           if (faceRes.data.status === 'error') {
-            // Student add hua, face fail — user ko warn karo
             await fetchStudents();
             resetForm();
-            alert(`✅ Student added!\n\n⚠️ Face registration failed: ${faceRes.data.message}\n\nPhoto clear honi chahiye aur ek face clearly visible hona chahiye.`);
+            toast(`Student added! Face registration failed: ${faceRes.data.message}`, 'warning');
             return;
           }
- 
+
           await fetchStudents();
           resetForm();
-          alert('✅ Student added and face registered successfully!\n\nAb face recognition mein yeh student detect hoga.');
- 
+          toast('Student added and face registered successfully!', 'success');
+
         } catch (faceErr) {
           console.error('Face register error:', faceErr);
           await fetchStudents();
           resetForm();
-          alert(`✅ Student added!\n\n⚠️ Face registration failed: ${faceErr.response?.data?.message || faceErr.message}\n\nYou can re-register later.`);
+          if (faceErr.response?.status === 409) {
+            toast('Student added! Face already registered.', 'info');
+          } else {
+            toast(`Student added! Face registration failed: ${faceErr.response?.data?.message || faceErr.message}`, 'warning');
+          }
         }
- 
+
       } else {
-        // No photo — just add student
         await fetchStudents();
         resetForm();
-        alert('✅ Student added!\n\nNote: No photo selected — face recognition will not work for this student.');
+        toast('Student added. No photo — face recognition will not work.', 'warning');
       }
- 
+
     } catch (err) {
       console.error('Add student error:', err);
-      alert(`❌ Could not add student: ${err.response?.data?.msg || err.message}`);
+      toast(`Could not add student: ${err.response?.data?.msg || err.message}`, 'error');
     } finally {
       setIsSubmitting(false);
       setSubmitStatus('');
@@ -225,14 +230,17 @@ const StudentList = () => {
   const handleEditStudent = (s) => { setSelectedStudent(s); setShowEditModal(true); };
   const handleAddReview = (s) => { setSelectedStudent(s); setReviewText(''); setShowReviewModal(true); };
   const handleDeleteStudent = async (id) => {
-    if (!window.confirm('Are you sure you want to remove this student?')) return;
-    try {
-      await axios.delete(`${API_BASE_URL}/api/admin/delete-student/${id}`, { headers: getAuthHeaders() });
-      setStudents(prev => prev.filter(s => s.id !== id));
-    } catch (err) {
-      console.error('Delete student error:', err);
-      alert(`❌ Could not delete student: ${err.response?.data?.msg || err.message}`);
-    }
+    confirmAction('Are you sure you want to remove this student?', async () => {
+      closeConfirm();
+      try {
+        await axios.delete(`${API_BASE_URL}/api/admin/delete-student/${id}`, { headers: getAuthHeaders() });
+        setStudents(prev => prev.filter(s => s.id !== id));
+        toast('Student removed.', 'success');
+      } catch (err) {
+        console.error('Delete student error:', err);
+        toast(`Could not delete student: ${err.response?.data?.msg || err.message}`, 'error');
+      }
+    });
   };
   const handleSaveStudent = (updatedData) => {
     setStudents(students.map(s => s.id === selectedStudent.id ? { ...s, ...updatedData } : s));
@@ -262,15 +270,7 @@ const StudentList = () => {
  
   return (
     <div className="space-y-6">
-      {/* Loading State */}
-      {loading && (
-        <div className="flex items-center justify-center py-16">
-          <div className="text-center">
-            <div className="text-5xl mb-3 animate-spin inline-block">⏳</div>
-            <p className="text-text/60 font-medium">Loading students from database...</p>
-          </div>
-        </div>
-      )}
+      {loading && <PageLoader variant="inline" emoji="👦" text="Loading students…" />}
  
       {/* Error State */}
       {error && (
@@ -650,6 +650,15 @@ const StudentList = () => {
       )}
  
       {/* ── Edit Modal ─────────────────────────────────────────────────────────── */}
+      <ConfirmModal
+        isOpen={confirm.open}
+        title="Are you sure?"
+        message={confirm.message}
+        confirmLabel="Yes, Remove"
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
+
       <StudentEditModal
         isOpen={showEditModal}
         onClose={() => { setShowEditModal(false); setSelectedStudent(null); }}

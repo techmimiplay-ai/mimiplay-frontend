@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 // /**
 //  * Application Configuration
 //  * Environment variables can be overridden via .env file
@@ -42,6 +44,20 @@ if (_raw && !_isAllowed(_raw)) {
 }
 
 export const API_BASE_URL = _raw;
+
+// ── Global 401/403 interceptor — redirects to login on expired/invalid token
+axios.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('userId');
+      window.location.href = '/login';
+    }
+    return Promise.reject(err);
+  }
+);
 
 // ✅ Token helper
 export const getAuthHeaders = () => {

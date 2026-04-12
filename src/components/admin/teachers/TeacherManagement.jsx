@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
+import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal } from '../../../components/shared';
 import { Search, Plus, CheckCircle, XCircle, Eye, Mail, Phone, Building2, User } from 'lucide-react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import { API_BASE_URL, getAuthHeaders } from '../../../config';
 
 import { useToast } from '../../../context/ToastContext';
@@ -14,38 +15,37 @@ const TeacherManagement = () => {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState(null);
+  const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
+
+  const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
+  const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/admin/all-users`, {
-      headers: getAuthHeaders()
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (!Array.isArray(data)) {
-          console.error("API error:", data);
-          return;
-        }
+    axios.get(`${API_BASE_URL}/api/admin/all-users`, { headers: getAuthHeaders() })
+      .then(res => {
+        const data = res.data;
+        if (!Array.isArray(data)) { console.error('API error:', data); return; }
         const formatted = data
-          .filter(user => user.role === "teacher")
+          .filter(user => user.role === 'teacher')
           .map(user => ({
             id: user._id,
             name: user.name,
             email: user.email,
             phone: user.phone,
-            school: user.school || "N/A",
-            class: user.class || "N/A",
+            school: user.school || 'N/A',
+            class: user.class || 'N/A',
             students: 0,
-            status: user.status === "approved" ? "active" : "pending",
-            joinedDate: user.created_at
-              ? new Date(user.created_at).toLocaleDateString()
-              : "N/A",
-            lastActive: "Recently"
+            status: user.status === 'approved' ? 'active' : 'pending',
+            joinedDate: user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A',
+            lastActive: 'Recently'
           }));
         setTeachers(formatted);
       })
-      .catch(err => console.error("Fetch error:", err));
+      .catch(err => console.error('Fetch error:', err))
+      .finally(() => setLoading(false));
   }, []);
 
   const [formData, setFormData] = useState({
@@ -61,10 +61,7 @@ const TeacherManagement = () => {
 
   const handleApprove = async (teacher) => {
     try {
-      await fetch(`${API_BASE_URL}/api/admin/approve/${teacher.id}`, {
-        method: "PUT",
-        headers: getAuthHeaders()
-      });
+      await axios.put(`${API_BASE_URL}/api/admin/approve/${teacher.id}`, {}, { headers: getAuthHeaders() });
       setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'active' } : t));
       setShowApprovalModal(false);
     } catch (err) {
@@ -74,78 +71,59 @@ const TeacherManagement = () => {
   };
 
   const handleReject = async (teacher) => {
-    if (!window.confirm(`Are you sure you want to reject ${teacher.name}?`)) return;
-    try {
-      await fetch(`${API_BASE_URL}/api/admin/reject/${teacher.id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders()
-      });
-      setTeachers(prev => prev.filter(t => t.id !== teacher.id));
-      setShowApprovalModal(false);
-    } catch (err) {
-      console.error('Reject error:', err);
-      toast('Failed to reject. Please try again.', 'error');
-    }
+    confirmAction(`Reject ${teacher.name}?`, async () => {
+      closeConfirm();
+      try {
+        await axios.delete(`${API_BASE_URL}/api/admin/reject/${teacher.id}`, { headers: getAuthHeaders() });
+        setTeachers(prev => prev.filter(t => t.id !== teacher.id));
+        setShowApprovalModal(false);
+      } catch (err) {
+        console.error('Reject error:', err);
+        toast('Failed to reject. Please try again.', 'error');
+      }
+    });
   };
 
   const handleDeactivate = async (teacher) => {
-    if (!window.confirm(`Are you sure you want to deactivate ${teacher.name}?`)) return;
-    try {
-      await fetch(`${API_BASE_URL}/api/admin/deactivate/${teacher.id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders()
-      });
-      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'inactive' } : t));
-    } catch (err) {
-      console.error('Deactivate error:', err);
-      toast('Failed to deactivate. Please try again.', 'error');
-    }
+    confirmAction(`Deactivate ${teacher.name}?`, async () => {
+      closeConfirm();
+      try {
+        await axios.put(`${API_BASE_URL}/api/admin/deactivate/${teacher.id}`, {}, { headers: getAuthHeaders() });
+        setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'inactive' } : t));
+      } catch (err) {
+        console.error('Deactivate error:', err);
+        toast('Failed to deactivate. Please try again.', 'error');
+      }
+    });
   };
 
   const handleAddTeacher = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/add-teacher`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(formData)
-      });
-      const data = await res.json();
-      if (!res.ok) { toast(data.msg || 'Failed to add teacher', 'error'); return; }
-      const newTeacher = {
-        ...formData,
-        school: formData.school || 'N/A',
-        class: formData.class || 'N/A',
-        students: 0,
-        status: 'pending',
-        joinedDate: new Date().toLocaleDateString(),
-        lastActive: 'Just now',
-      };
+      const res = await axios.post(`${API_BASE_URL}/api/admin/add-teacher`, formData, { headers: getAuthHeaders() });
+      const data = res.data;
+      const newTeacher = { ...formData, school: formData.school || 'N/A', class: formData.class || 'N/A', students: 0, status: 'pending', joinedDate: new Date().toLocaleDateString(), lastActive: 'Just now' };
       setTeachers(prev => [newTeacher, ...prev]);
       setFormData({ name: '', email: '', phone: '', school: '', class: '', password: '' });
       setShowAddModal(false);
     } catch (err) {
       console.error(err);
-      toast('Error adding teacher', 'error');
+      toast(err.response?.data?.msg || 'Error adding teacher', 'error');
     }
   };
 
   const handleUpdateTeacher = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/admin/edit-teacher/${editData.id}`, {
-        method: "PUT",
-        headers: getAuthHeaders(),
-        body: JSON.stringify(editData)
-      });
-      const data = await res.json();
-      if (!res.ok) { toast(data.msg || 'Failed to update teacher', 'error'); return; }
+      await axios.put(`${API_BASE_URL}/api/admin/edit-teacher/${editData.id}`, editData, { headers: getAuthHeaders() });
       toast('Teacher updated successfully', 'success');
       setTeachers(prev => prev.map(t => t.id === editData.id ? editData : t));
       setShowEditModal(false);
     } catch (err) {
       console.error(err);
-      toast('Error updating teacher', 'error');
+      toast(err.response?.data?.msg || 'Error updating teacher', 'error');
     }
   };
+
+  if (loading) return <PageLoader variant="inline" emoji="👩‍🏫" text="Loading teachers…" />;
 
   const stats = {
     total: teachers.length,
@@ -401,6 +379,14 @@ const TeacherManagement = () => {
           </div>
         </Modal>
       )}
+      <ConfirmModal
+        isOpen={confirm.open}
+        title="Are you sure?"
+        message={confirm.message}
+        confirmLabel="Yes, Proceed"
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config';
-import { Button, Card, Modal } from '../../../components/shared';
+import { Button, Card, Modal, ConfirmModal } from '../../../components/shared';
 import { Calendar, Download, CheckCircle, XCircle, Clock, MessageSquare, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -14,6 +14,9 @@ const AttendanceTab = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [reviewText, setReviewText] = useState('');
   const [saveMsg, setSaveMsg] = useState('');
+  const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
+  const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
+  const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
 
   // ── Fetch attendance ────────────────────────────────────────
   const fetchAttendance = useCallback(async (date) => {
@@ -96,26 +99,25 @@ const AttendanceTab = () => {
 
   // ── Mark all present ────────────────────────────────────────
   const markAllPresent = async () => {
-    if (!window.confirm('Mark ALL students as present?')) return;
-    try {
-      setSaveMsg('Saving all...');
-      await Promise.all(
-        attendanceData
-          .filter(s => s.status !== 'present')
-          .map(s => axios.post(`${API_BASE_URL}/api/teacher/attendance/update`, {
-            name: s.name,
-            status: 'present',
-            date: selectedDate,
-            student_id: s.studentId || s.id,
-          }))
-      );
-      await fetchAttendance(selectedDate);
-      setSaveMsg('✅ All students marked present!');
-      setTimeout(() => setSaveMsg(''), 3000);
-    } catch (err) {
-      setSaveMsg('❌ Some updates failed');
-      setTimeout(() => setSaveMsg(''), 3000);
-    }
+    confirmAction('Mark ALL students as present?', async () => {
+      closeConfirm();
+      try {
+        setSaveMsg('Saving all...');
+        await Promise.all(
+          attendanceData
+            .filter(s => s.status !== 'present')
+            .map(s => axios.post(`${API_BASE_URL}/api/teacher/attendance/update`, {
+              name: s.name, status: 'present', date: selectedDate, student_id: s.studentId || s.id,
+            }))
+        );
+        await fetchAttendance(selectedDate);
+        setSaveMsg('✅ All students marked present!');
+        setTimeout(() => setSaveMsg(''), 3000);
+      } catch (err) {
+        setSaveMsg('❌ Some updates failed');
+        setTimeout(() => setSaveMsg(''), 3000);
+      }
+    });
   };
 
   // ── Export CSV ──────────────────────────────────────────────
@@ -154,7 +156,8 @@ const AttendanceTab = () => {
       setReviewText('');
     } catch (err) {
       console.error('Review error:', err);
-      alert(`❌ Could not save review: ${err.response?.data?.msg || err.message}`);
+      setSaveMsg(`❌ Could not save review: ${err.response?.data?.msg || err.message}`);
+      setTimeout(() => setSaveMsg(''), 3000);
     }
   };
 
@@ -374,6 +377,15 @@ const AttendanceTab = () => {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        isOpen={confirm.open}
+        title="Are you sure?"
+        message={confirm.message}
+        confirmLabel="Yes, Proceed"
+        onConfirm={confirm.onConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   );
 };

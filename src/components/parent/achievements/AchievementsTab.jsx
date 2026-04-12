@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config';
-import { Card } from '../../../components/shared';
+import { Card, PageLoader, EmptyState } from '../../../components/shared';
 import { Star, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 const ALL_BADGES = [
@@ -101,24 +101,9 @@ const AchievementsTab = ({ selectedChild }) => {
   const locked     = allBadges.filter(b => totalStars <  b.unlockAt);
   const nextBadge  = locked[0];
 
-  if (!selectedChild) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="text-5xl mb-3">🏆</div>
-        <p className="text-text/60 font-semibold">No child selected</p>
-        <p className="text-sm text-text/40 mt-1">Please select a child from the top menu</p>
-      </div>
-    </div>
-  );
+  if (!selectedChild) return <EmptyState icon={Star} title="No child selected" description="Please select a child from the top menu" />;
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="text-5xl mb-3 animate-spin inline-block">⏳</div>
-        <p className="text-text/60">Loading achievements...</p>
-      </div>
-    </div>
-  );
+  if (loading) return <PageLoader variant="inline" emoji="🏆" text="Loading achievements…" />;
 
   return (
     <div className="space-y-6">

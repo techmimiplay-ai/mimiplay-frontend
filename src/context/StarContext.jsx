@@ -62,7 +62,7 @@ export function StarProvider({ children }) {
   const addActivityResult = useCallback(({ studentId, studentName, activityId, activityName, stars, score }) => {
     const entry = {
       id:           Date.now(),
-      studentId:    studentId    ?? 'student-1',
+      studentId:    studentId    ?? null,
       studentName:  studentName  ?? 'Aarav Sharma',
       activityId:   activityId   ?? 0,
       activityName: activityName ?? 'Activity',

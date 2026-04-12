@@ -1,350 +1,7 @@
-// import React, { useState, useEffect } from 'react';
-// import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
-// import { Search, Eye, Mail, Phone, User, CheckCircle, Plus, Pencil } from 'lucide-react';
-// import { API_BASE_URL, getAuthHeaders } from '../../../config';
-
-// const StudentManagement = () => {
-//     const [searchQuery, setSearchQuery] = useState('');
-//     const [students, setStudents] = useState([]);
-//     const [selectedStudent, setSelectedStudent] = useState(null);
-//     const [showViewModal, setShowViewModal] = useState(false);
-
-//     const [showAddModal, setShowAddModal] = useState(false);
-//     const [showEditModal, setShowEditModal] = useState(false);
-//     const [editData, setEditData] = useState(null);
-//     const [parents, setParents] = useState([]);
-
-//     const [formData, setFormData] = useState({
-//         studentName: '',
-//         studentClass: '',
-//         parentName: '',
-//         email: '',
-//         phone: ''
-//     });
-
-//     const fetchStudents = async () => {
-//         const res = await fetch(`${API_BASE_URL}/api/admin/all-students`, {
-//             headers: getAuthHeaders()
-//         });
-//         const data = await res.json();
-
-//         if (!Array.isArray(data)) {
-//             console.error("Students fetch error:", data);
-//             return;
-//         }
-
-//         const formatted = data.map(s => ({
-//             id: s._id,
-//             studentName: s.name,
-//             studentClass: s.class,
-//             parentName: s.parent_name || "N/A",
-//             parentId: s.parent_id || "",
-//             email: s.email || "-",
-//             phone: s.phone || "-",
-//             status: "active",
-//             joinedDate: s.created_at
-//                 ? new Date(s.created_at).toLocaleDateString()
-//                 : "N/A",
-//         }));
-
-//         setStudents(formatted);
-//     };
-
-//     const fetchParents = async () => {
-//         const res = await fetch(`${API_BASE_URL}/api/admin/all-users`, {
-//             headers: getAuthHeaders()
-//         });
-//         const data = await res.json();
-
-//         if (!Array.isArray(data)) {
-//             console.error("Parents fetch error:", data);
-//             return;
-//         }
-
-//         const onlyParents = data.filter(u => u.role === "parent");
-//         setParents(onlyParents);
-//     };
-
-//     useEffect(() => {
-//         fetchStudents();
-//         fetchParents();
-//     }, []);
-
-//     const handleAddStudent = async () => {
-//         const selectedParentObj = parents.find(p => p._id === formData.parentName);
-//         try {
-//             const response = await fetch(`${API_BASE_URL}/api/admin/add-student`, {
-//                 method: "POST",
-//                 headers: getAuthHeaders(),
-//                 body: JSON.stringify({
-//                     name: formData.studentName,
-//                     class: formData.studentClass,
-//                     parentName: selectedParentObj ? selectedParentObj.name : "",
-//                     parent_id: formData.parentName,
-//                     email: formData.email,
-//                     phone: formData.phone
-//                 })
-//             });
-
-//             if (response.ok) {
-//                 alert("Student added ✅");
-//                 fetchStudents();
-//                 setShowAddModal(false);
-//             }
-//         } catch (err) {
-//             console.error(err);
-//             alert("Server error");
-//         }
-//     };
-
-//     const handleUpdateStudent = async () => {
-//         const selectedParentObj = parents.find(p => p._id === editData.parentId || p.name === editData.parentName);
-//         try {
-//             const res = await fetch(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
-//                 method: "PUT",
-//                 headers: getAuthHeaders(),
-//                 body: JSON.stringify({
-//                     name: editData.studentName,
-//                     class: editData.studentClass,
-//                     parentName: selectedParentObj ? selectedParentObj.name : editData.parentName,
-//                     parent_id: editData.parentId,
-//                     email: editData.email,
-//                     phone: editData.phone
-//                 })
-//             });
-
-//             if (res.ok) {
-//                 alert("Student updated ✅");
-//                 fetchStudents();
-//                 setShowEditModal(false);
-//             } else {
-//                 alert("Update failed ❌");
-//             }
-//         } catch (err) {
-//             console.error(err);
-//             alert("Server error");
-//         }
-//     };
-
-//     const handleParentChange = (e) => {
-//         const parentId = e.target.value;
-//         const selectedParent = parents.find(p => p._id === parentId);
-
-//         if (selectedParent) {
-//             setFormData({
-//                 ...formData,
-//                 parentName: parentId,
-//                 email: selectedParent.email || '',
-//                 phone: selectedParent.phone || ''
-//             });
-//         } else {
-//             setFormData({ ...formData, parentName: '', email: '', phone: '' });
-//         }
-//     };
-
-//     const filteredStudents = students.filter(student =>
-//         student.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-//         student.parentName.toLowerCase().includes(searchQuery.toLowerCase())
-//     );
-
-//     const stats = {
-//         total: students.length,
-//         active: students.filter(s => s.status === 'active').length,
-//         pending: students.filter(s => s.status === 'pending').length,
-//     };
-
-//     return (
-//         <div className="space-y-6">
-//             {/* Header */}
-//             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-//                 <div>
-//                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Student Management</h1>
-//                     <p className="text-text/60">View and manage students</p>
-//                 </div>
-//                 <Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
-//                     Add Student
-//                 </Button>
-//             </div>
-
-//             {/* Stats */}
-//             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-//                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-//                     <p className="text-sm text-blue-700 mb-1">Total Students</p>
-//                     <p className="text-3xl font-bold text-blue-900">{stats.total}</p>
-//                 </Card>
-//                 <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-//                     <p className="text-sm text-green-700 mb-1">Active</p>
-//                     <p className="text-3xl font-bold text-green-900">{stats.active}</p>
-//                 </Card>
-//                 <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
-//                     <p className="text-sm text-yellow-700 mb-1">Pending</p>
-//                     <p className="text-3xl font-bold text-yellow-900">{stats.pending}</p>
-//                 </Card>
-//             </div>
-
-//             {/* Search */}
-//             <Card>
-//                 <Input
-//                     placeholder="Search by student or parent..."
-//                     icon={Search}
-//                     value={searchQuery}
-//                     onChange={(e) => setSearchQuery(e.target.value)}
-//                 />
-//             </Card>
-
-//             {/* Table */}
-//             <Card>
-//                 <div className="overflow-x-auto w-full">
-//                     <table className="w-full min-w-[600px]">
-//                         <thead>
-//                             <tr className="border-b border-gray-200">
-//                                 <th className="text-left py-4 px-4 font-semibold">Student</th>
-//                                 <th className="text-left py-4 px-4 font-semibold hidden sm:table-cell">Parent</th>
-//                                 <th className="text-left py-4 px-4 font-semibold hidden md:table-cell">Contact</th>
-//                                 <th className="text-left py-4 px-4 font-semibold hidden sm:table-cell">Class</th>
-//                                 <th className="text-left py-4 px-4 font-semibold">Status</th>
-//                                 <th className="text-right py-4 px-4 font-semibold">Actions</th>
-//                             </tr>
-//                         </thead>
-//                         <tbody>
-//                             {filteredStudents.map(student => (
-//                                 <tr key={student.id} className="border-b hover:bg-gray-50">
-//                                     <td className="py-4 px-4">
-//                                         <div className="flex items-center gap-3">
-//                                             <Avatar />
-//                                             <div>
-//                                                 <p className="font-semibold">{student.studentName}</p>
-//                                                 <p className="text-sm text-text/60">Joined: {student.joinedDate}</p>
-//                                             </div>
-//                                         </div>
-//                                     </td>
-//                                     <td className="py-4 px-4 hidden sm:table-cell">{student.parentName}</td>
-//                                     <td className="py-4 px-4 hidden md:table-cell">
-//                                         <div className="text-sm">
-//                                             <p className="flex items-center gap-1">
-//                                                 <Mail size={14} className="shrink-0" />
-//                                                 <span className="truncate max-w-[120px]">{student.email}</span>
-//                                             </p>
-//                                             <p className="flex items-center gap-1">
-//                                                 <Phone size={14} className="shrink-0" /> {student.phone}
-//                                             </p>
-//                                         </div>
-//                                     </td>
-//                                     <td className="py-4 px-4 hidden sm:table-cell">{student.studentClass}</td>
-//                                     <td className="py-4 px-4">
-//                                         <span className={`
-//                                             px-2 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1
-//                                             ${student.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}
-//                                         `}>
-//                                             <CheckCircle size={12} />
-//                                             {student.status}
-//                                         </span>
-//                                     </td>
-//                                     <td className="py-4 px-4 text-right space-x-2">
-//                                         <button
-//                                             onClick={() => { setEditData(student); setShowEditModal(true); }}
-//                                             className="p-2 hover:bg-indigo-50 rounded-lg">
-//                                             <Pencil size={16} className="text-indigo-600" />
-//                                         </button>
-//                                         <button
-//                                             onClick={() => { setSelectedStudent(student); setShowViewModal(true); }}
-//                                             className="p-2 hover:bg-blue-50 rounded-lg">
-//                                             <Eye size={18} className="text-blue-600" />
-//                                         </button>
-//                                     </td>
-//                                 </tr>
-//                             ))}
-//                         </tbody>
-//                     </table>
-//                 </div>
-//             </Card>
-
-//             {/* Add Modal */}
-//             {showAddModal && (
-//                 <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Add New Student" size="md">
-//                     <div className="space-y-4">
-//                         <Input label="Student Name" icon={User} value={formData.studentName}
-//                             onChange={(e) => setFormData({ ...formData, studentName: e.target.value })} />
-//                         <Input label="Class" placeholder="e.g. UKG-A" value={formData.studentClass}
-//                             onChange={(e) => setFormData({ ...formData, studentClass: e.target.value })} />
-//                         <div className="space-y-2">
-//                             <label className="text-sm font-medium text-gray-700">Parent</label>
-//                             <div className="relative">
-//                                 <User className="absolute left-4 top-3.5 text-gray-400" size={18} />
-//                                 <select
-//                                     className="w-full border rounded-full py-3 pl-12 pr-4 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
-//                                     value={formData.parentName}
-//                                     onChange={handleParentChange}>
-//                                     <option value="">Select Parent</option>
-//                                     {parents.map((p) => (
-//                                         <option key={p._id} value={p._id}>{p.name}</option>
-//                                     ))}
-//                                 </select>
-//                             </div>
-//                         </div>
-//                         <Input label="Email" icon={Mail} value={formData.email}
-//                             onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-//                         <Input label="Phone" icon={Phone} value={formData.phone}
-//                             onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-//                         <div className="flex gap-3 mt-6">
-//                             <Button variant="primary" className="flex-1" onClick={handleAddStudent}>Add Student</Button>
-//                             <Button variant="outline" className="flex-1" onClick={() => setShowAddModal(false)}>Cancel</Button>
-//                         </div>
-//                     </div>
-//                 </Modal>
-//             )}
-
-//             {/* Edit Modal */}
-//             {editData && (
-//                 <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Student" size="md">
-//                     <div className="space-y-4">
-//                         <Input label="Student Name" value={editData.studentName}
-//                             onChange={(e) => setEditData({ ...editData, studentName: e.target.value })} />
-//                         <Input label="Class" value={editData.studentClass}
-//                             onChange={(e) => setEditData({ ...editData, studentClass: e.target.value })} />
-//                         <select
-//                             className="w-full border rounded-lg p-2"
-//                             value={editData.parentId || ""}
-//                             onChange={(e) => setEditData({ ...editData, parentId: e.target.value })}>
-//                             <option value="">Select Parent</option>
-//                             {parents.map(p => (
-//                                 <option key={p._id} value={p._id}>{p.name}</option>
-//                             ))}
-//                         </select>
-//                         <Input label="Email" value={editData.email}
-//                             onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
-//                         <Input label="Phone" value={editData.phone}
-//                             onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
-//                         <div className="flex gap-3 mt-6">
-//                             <Button variant="primary" className="flex-1" onClick={handleUpdateStudent}>Save Changes</Button>
-//                             <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">Cancel</Button>
-//                         </div>
-//                     </div>
-//                 </Modal>
-//             )}
-
-//             {/* View Modal */}
-//             {selectedStudent && (
-//                 <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} title="Student Details">
-//                     <div className="space-y-3">
-//                         <p><b>Student:</b> {selectedStudent.studentName}</p>
-//                         <p><b>Class:</b> {selectedStudent.studentClass}</p>
-//                         <p><b>Parent:</b> {selectedStudent.parentName}</p>
-//                         <p><b>Email:</b> {selectedStudent.email}</p>
-//                         <p><b>Phone:</b> {selectedStudent.phone}</p>
-//                     </div>
-//                 </Modal>
-//             )}
-//         </div>
-//     );
-// };
-
-// export default StudentManagement;
-
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
+import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal } from '../../../components/shared';
 import { Search, Eye, Mail, Phone, User, CheckCircle, Plus, Pencil, Upload, Camera, X, Loader } from 'lucide-react';
+import axios from 'axios';
 import { API_BASE_URL, getAuthHeaders, API_ENDPOINTS } from '../../../config';
 import { useToast } from '../../../context/ToastContext';
 
@@ -358,6 +15,10 @@ const StudentManagement = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editData, setEditData] = useState(null);
     const [parents, setParents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
+    const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
+    const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
 
     // Photo state
     const [photoFile, setPhotoFile] = useState(null);
@@ -381,54 +42,43 @@ const StudentManagement = () => {
     });
 
     const fetchStudents = async () => {
-        const res = await fetch(`${API_BASE_URL}/api/admin/all-students`, {
-            headers: getAuthHeaders()
-        });
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-            console.error("Students fetch error:", data);
-            return;
+        try {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/all-students`, { headers: getAuthHeaders() });
+            const data = res.data;
+            if (!Array.isArray(data)) { console.error('Students fetch error:', data); setLoading(false); return; }
+            const formatted = data.map(s => ({
+                id: s._id, studentName: s.name, studentClass: s.class,
+                parentName: s.parent_name || 'N/A', parentId: s.parent_id || '',
+                email: s.email || '-', phone: s.phone || '-',
+                rollNumber: s.roll_number || '-', faceRegistered: s.face_registered || false,
+                status: 'active',
+                joinedDate: s.created_at ? new Date(s.created_at).toLocaleDateString() : 'N/A',
+            }));
+            setStudents(formatted);
+            setLoading(false);
+        } catch (err) {
+            console.error('Students fetch error:', err);
+            setLoading(false);
         }
-
-        const formatted = data.map(s => ({
-            id: s._id,
-            studentName: s.name,
-            studentClass: s.class,
-            parentName: s.parent_name || "N/A",
-            parentId: s.parent_id || "",
-            email: s.email || "-",
-            phone: s.phone || "-",
-            rollNumber: s.roll_number || "-",
-            faceRegistered: s.face_registered || false,
-            status: "active",
-            joinedDate: s.created_at
-                ? new Date(s.created_at).toLocaleDateString()
-                : "N/A",
-        }));
-
-        setStudents(formatted);
     };
 
     const fetchParents = async () => {
-        const res = await fetch(`${API_BASE_URL}/api/admin/all-users`, {
-            headers: getAuthHeaders()
-        });
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-            console.error("Parents fetch error:", data);
-            return;
+        try {
+            const res = await axios.get(`${API_BASE_URL}/api/admin/all-users`, { headers: getAuthHeaders() });
+            const data = res.data;
+            if (!Array.isArray(data)) { console.error('Parents fetch error:', data); return; }
+            setParents(data.filter(u => u.role === 'parent'));
+        } catch (err) {
+            console.error('Parents fetch error:', err);
         }
-
-        const onlyParents = data.filter(u => u.role === "parent");
-        setParents(onlyParents);
     };
 
     useEffect(() => {
         fetchStudents();
         fetchParents();
     }, []);
+
+    if (loading) return <PageLoader variant="inline" emoji="🎓" text="Loading students…" />;
 
     // ─── Photo file select handler ───────────────────────────────────────────
     const handlePhotoSelect = (e) => {
@@ -508,24 +158,14 @@ const StudentManagement = () => {
             const selectedParentObj = parents.find(p => p._id === formData.parentName);
 
             // STEP 1: Add student to DB
-            const response = await fetch(`${API_BASE_URL}/api/admin/add-student`, {
-                method: "POST",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    name: formData.studentName,
-                    class: formData.studentClass,
-                    parentName: selectedParentObj ? selectedParentObj.name : "",
-                    parent_id: formData.parentName,
-                    email: formData.email,
-                    phone: formData.phone,
-                    rollNumber: formData.rollNumber
-                })
-            });
+            const response = await axios.post(`${API_BASE_URL}/api/admin/add-student`, {
+                    name: formData.studentName, class: formData.studentClass,
+                    parentName: selectedParentObj ? selectedParentObj.name : '',
+                    parent_id: formData.parentName, email: formData.email,
+                    phone: formData.phone, rollNumber: formData.rollNumber
+                }, { headers: getAuthHeaders() });
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(errData.msg || `Server error: ${response.status}`);
-            }
+            if (!response.data) throw new Error('Server error');
 
             // STEP 2: Register face in MongoDB GridFS (only if photo selected)
             if (photoFile) {
@@ -533,16 +173,10 @@ const StudentManagement = () => {
 
                 const base64Image = await fileToBase64(photoFile);
 
-                const faceResponse = await fetch(API_ENDPOINTS.REGISTER_FACE, {
-                    method: "POST",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        name: formData.studentName,
-                        image: base64Image
-                    })
-                });
-
-                const faceResult = await faceResponse.json();
+                const faceResponse = await axios.post(API_ENDPOINTS.REGISTER_FACE, {
+                        name: formData.studentName, image: base64Image
+                    }, { headers: getAuthHeaders() });
+                const faceResult = faceResponse.data;
 
                 if (faceResult.status === 'error') {
                     // Student add hua but face failed - warn user
@@ -582,72 +216,27 @@ const StudentManagement = () => {
         setShowAddModal(false);
     };
 
-    // ─── Update student handler ───────────────────────────────────────────────
-    // const handleUpdateStudent = async () => {
-    //     const selectedParentObj = parents.find(p => p._id === editData.parentId || p.name === editData.parentName);
-    //     try {
-    //         const res = await fetch(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
-    //             method: "PUT",
-    //             headers: getAuthHeaders(),
-    //             body: JSON.stringify({
-    //                 name: editData.studentName,
-    //                 class: editData.studentClass,
-    //                 parentName: selectedParentObj ? selectedParentObj.name : editData.parentName,
-    //                 parent_id: editData.parentId,
-    //                 email: editData.email,
-    //                 phone: editData.phone
-    //             })
-    //         });
-
-    //         if (res.ok) {
-    //             alert("Student updated ✅");
-    //             fetchStudents();
-    //             setShowEditModal(false);
-    //         } else {
-    //             alert("Update failed ❌");
-    //         }
-    //     } catch (err) {
-    //         console.error(err);
-    //         alert("Server error");
-    //     }
-    // };
-
     // ─── Update student handler (with face registration) ──────────────────────
     const handleUpdateStudent = async () => {
         const selectedParentObj = parents.find(p => p._id === editData.parentId || p.name === editData.parentName);
         setIsEditSubmitting(true);
         try {
             // STEP 1: Student info update karo
-            const res = await fetch(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
-                method: "PUT",
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    name: editData.studentName,
-                    class: editData.studentClass,
-                    parentName: selectedParentObj ? selectedParentObj.name : editData.parentName,
-                    parent_id: editData.parentId,
-                    email: editData.email,
-                    phone: editData.phone
-                })
-            });
+            const res = await axios.put(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
+                name: editData.studentName, class: editData.studentClass,
+                parentName: selectedParentObj ? selectedParentObj.name : editData.parentName,
+                parent_id: editData.parentId, email: editData.email, phone: editData.phone
+            }, { headers: getAuthHeaders() });
 
-            if (!res.ok) {
-                toast('Update failed', 'error');
-                return;
-            }
+            if (!res.data) { toast('Update failed', 'error'); return; }
 
             // STEP 2: Agar naya photo select hua hai toh face register karo
             if (editPhotoFile) {
                 const base64Image = await fileToBase64(editPhotoFile);
-                const faceResponse = await fetch(API_ENDPOINTS.REGISTER_FACE, {
-                    method: "POST",
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({
-                        name: editData.studentName,
-                        image: base64Image
-                    })
-                });
-                const faceResult = await faceResponse.json();
+                const faceResponse = await axios.post(API_ENDPOINTS.REGISTER_FACE, {
+                    name: editData.studentName, image: base64Image
+                }, { headers: getAuthHeaders() });
+                const faceResult = faceResponse.data;
                 if (faceResult.status === 'error') {
                     toast(`Student updated! Face registration failed: ${faceResult.message}`, 'warning');
                 } else {
@@ -1022,6 +611,15 @@ const StudentManagement = () => {
                     </div>
                 </Modal>
             )}
+
+            <ConfirmModal
+                isOpen={confirm.open}
+                title="Are you sure?"
+                message={confirm.message}
+                confirmLabel="Yes, Proceed"
+                onConfirm={confirm.onConfirm}
+                onCancel={closeConfirm}
+            />
         </div>
     );
 };
