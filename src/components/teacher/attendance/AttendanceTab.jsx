@@ -141,10 +141,20 @@ const AttendanceTab = () => {
     setShowReviewModal(true);
   };
 
-  const submitReview = () => {
-    if (reviewText.trim()) {
-      alert(`Review added for ${selectedStudent.name}`);
+  const submitReview = async () => {
+    if (!reviewText.trim()) return;
+    try {
+      await axios.post(`${API_BASE_URL}/api/teacher/add-review`, {
+        student_id: selectedStudent.studentId || selectedStudent.id,
+        student_name: selectedStudent.name,
+        review: reviewText,
+        date: selectedDate,
+      });
       setShowReviewModal(false);
+      setReviewText('');
+    } catch (err) {
+      console.error('Review error:', err);
+      alert(`❌ Could not save review: ${err.response?.data?.msg || err.message}`);
     }
   };
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Button from './Button';
 
 class ErrorBoundary extends React.Component {
@@ -13,11 +13,21 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    if (import.meta.env.DEV) console.error('Error caught by boundary:', error, errorInfo);
   }
 
-  resetError = () => {
+  handleReset = () => {
     this.setState({ hasError: false, error: null });
+  };
+
+  handleGoHome = () => {
+    this.setState({ hasError: false, error: null });
+    const role = localStorage.getItem('role');
+    const dest = role === 'teacher' ? '/teacher/home'
+               : role === 'parent'  ? '/parent/home'
+               : role === 'admin'   ? '/admin/dashboard'
+               : '/login';
+    window.location.href = dest;
   };
 
   render() {
@@ -28,32 +38,20 @@ class ErrorBoundary extends React.Component {
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertTriangle size={32} className="text-red-600" />
             </div>
-
             <h1 className="text-2xl font-bold text-text mb-2">Oops! Something went wrong</h1>
-
-            <p className="text-text/60 mb-4">
-              {this.state.error?.message || 'An unexpected error occurred. Please try again.'}
-            </p>
-
-            <div className="bg-red-50 rounded-lg p-3 mb-6 text-left max-h-32 overflow-auto">
-              <p className="text-xs font-mono text-red-700 whitespace-pre-wrap">
-                {this.state.error?.stack?.substring(0, 300)}...
-              </p>
+            <p className="text-text/60 mb-6">Something went wrong. Please try again.</p>
+            <div className="flex gap-3">
+              <Button variant="outline" icon={Home} onClick={this.handleGoHome} className="flex-1">
+                Go Home
+              </Button>
+              <Button variant="primary" icon={RefreshCw} onClick={this.handleReset} className="flex-1">
+                Try Again
+              </Button>
             </div>
-
-            <Button
-              variant="primary"
-              icon={RefreshCw}
-              onClick={this.resetError}
-              className="w-full"
-            >
-              Try Again
-            </Button>
           </div>
         </div>
       );
     }
-
     return this.props.children;
   }
 }

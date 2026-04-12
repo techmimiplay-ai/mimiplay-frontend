@@ -18,7 +18,7 @@
 import React, { useState, useCallback, memo } from 'react';
 import axios from 'axios';
 import { Button, Card, Modal } from '../../../components/shared';
-import { Play, Settings, Plus, Clock, Users } from 'lucide-react';
+import { Play, Settings, Clock, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE_URL, API_ENDPOINTS } from '../../../config';
 import { useStars } from '../../../context/StarContext';
@@ -67,7 +67,7 @@ const STATS_CARDS = (activities) => [
 ];
 
 /* ── ActivitiesTab ────────────────────────────────────────────── */
-const ActivitiesTab = ({ isParentMode = false }) => {
+const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
   const { addActivityResult } = useStars();
 
   const [showConfigModal,    setShowConfigModal]    = useState(false);
@@ -76,15 +76,18 @@ const ActivitiesTab = ({ isParentMode = false }) => {
   const [runningDifficulty,  setRunningDifficulty]  = useState('easy');
   const [lastResult,         setLastResult]          = useState(null);
   const [showBanner,         setShowBanner]          = useState(false);
-  const [activityDifficulty, setActivityDifficulty] = useState({});
+  const [activityConfig, setActivityConfig] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('activityConfig') || '{}'); } catch { return {}; }
+  });
 
   /* ── Start activity ─────────────────────────────────────────── */
   const handleStartActivity = useCallback((activity) => {
-    const diff = activityDifficulty[activity.id] || 'easy';
+    const cfg  = activityConfig[activity.id] || {};
+    const diff = cfg.difficulty || 'easy';
     LOG.info('ActivitiesTab', 'Starting activity', { id: activity.id, name: activity.name, diff });
     setRunningDifficulty(diff);
-    setRunningActivity(activity); // stable ref from ACTIVITIES array
-  }, [activityDifficulty]);
+    setRunningActivity(activity);
+  }, [activityConfig]);
 
   /* ── Student done callback ──────────────────────────────────── */
   const handleStudentDone = useCallback(async ({ stars, score, studentName }) => {
@@ -111,11 +114,14 @@ const ActivitiesTab = ({ isParentMode = false }) => {
       stars, score,
     });
 
-    // Persist to backend
+    // Persist to backend with auth
+    const token = localStorage.getItem('token');
     axios.post(`${API_BASE_URL}/save-activity-result`, {
       student_id: studentId, student_name: studentName,
       activity_id: act?.id ?? 0, activity_name: act?.name ?? 'Activity',
       stars, score,
+    }, {
+      headers: { Authorization: `Bearer ${token}` },
     }).catch(e => LOG.warn('ActivitiesTab', 'Save failed', e.message));
 
     setLastResult({ stars, score, studentName, activityName: act?.name });
@@ -131,6 +137,7 @@ const ActivitiesTab = ({ isParentMode = false }) => {
 
   /* ── Derived ────────────────────────────────────────────────── */
   const stats = STATS_CARDS(ACTIVITIES);
+  const getConfig = (id) => activityConfig[id] || { difficulty: 'easy', timeLimit: 15, numQuestions: 10 };
 
   /* ── Render ─────────────────────────────────────────────────── */
   return (
@@ -143,6 +150,7 @@ const ActivitiesTab = ({ isParentMode = false }) => {
           onStudentDone={handleStudentDone}
           onClose={handleClose}
           isParentMode={isParentMode}
+          childName={childName}
         />
       )}
 
@@ -153,9 +161,6 @@ const ActivitiesTab = ({ isParentMode = false }) => {
             <h1 className="text-3xl lg:text-4xl font-bold text-text mb-1">Learning Activities</h1>
             <p className="text-text/60 text-sm sm:text-base">Manage and launch classroom activities</p>
           </div>
-          <Button variant="primary" icon={Plus} className="self-stretch sm:self-auto">
-            Create Custom Activity
-          </Button>
         </div>
 
         {/* Success banner */}
@@ -189,7 +194,8 @@ const ActivitiesTab = ({ isParentMode = false }) => {
         {/* Activity grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {ACTIVITIES.map((activity, index) => {
-            const diff    = activityDifficulty[activity.id] || 'easy';
+            const cfg     = getConfig(activity.id);
+            const diff    = cfg.difficulty;
             const diffCfg = DIFFICULTY_CFG[diff];
             return (
               <motion.div key={activity.id} initial={{ opacity: 0, y: 20 }}
@@ -261,8 +267,11 @@ const ActivitiesTab = ({ isParentMode = false }) => {
               <div>
                 <label className="block text-sm font-semibold text-text mb-2">Difficulty Level</label>
                 <select
-                  value={activityDifficulty[selectedActivity.id] || 'easy'}
-                  onChange={e => setActivityDifficulty(prev => ({ ...prev, [selectedActivity.id]: e.target.value }))}
+                  value={getConfig(selectedActivity.id).difficulty}
+                  onChange={e => setActivityConfig(prev => ({
+                    ...prev,
+                    [selectedActivity.id]: { ...getConfig(selectedActivity.id), difficulty: e.target.value },
+                  }))}
                   className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none"
                 >
                   <option value="easy">Easy</option>
@@ -272,12 +281,22 @@ const ActivitiesTab = ({ isParentMode = false }) => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-text mb-2">Time Limit (minutes)</label>
-                <input type="number" defaultValue={15}
+                <input type="number" min={1} max={60}
+                  value={getConfig(selectedActivity.id).timeLimit}
+                  onChange={e => setActivityConfig(prev => ({
+                    ...prev,
+                    [selectedActivity.id]: { ...getConfig(selectedActivity.id), timeLimit: Number(e.target.value) },
+                  }))}
                   className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none" />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-text mb-2">Number of Questions</label>
-                <input type="number" defaultValue={10}
+                <input type="number" min={1} max={20}
+                  value={getConfig(selectedActivity.id).numQuestions}
+                  onChange={e => setActivityConfig(prev => ({
+                    ...prev,
+                    [selectedActivity.id]: { ...getConfig(selectedActivity.id), numQuestions: Number(e.target.value) },
+                  }))}
                   className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-purple-400 outline-none" />
               </div>
               {selectedActivity.isAI && (
@@ -292,7 +311,10 @@ const ActivitiesTab = ({ isParentMode = false }) => {
                 <p className="text-sm text-amber-800">ℹ️ Settings apply the next time this activity is launched.</p>
               </div>
               <div className="flex gap-3">
-                <Button variant="primary" className="flex-1" onClick={() => setShowConfigModal(false)}>
+                <Button variant="primary" className="flex-1" onClick={() => {
+                  localStorage.setItem('activityConfig', JSON.stringify(activityConfig));
+                  setShowConfigModal(false);
+                }}>
                   Save Settings
                 </Button>
                 <Button variant="outline" className="flex-1" onClick={() => setShowConfigModal(false)}>

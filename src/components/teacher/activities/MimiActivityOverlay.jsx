@@ -33,7 +33,6 @@ import React, {
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { API_BASE_URL, API_ENDPOINTS } from '../../../config';
-import { StarRating, ConfettiAnimation } from '../../../components/mimi/ui-elements';
 
 import bgImage       from '../../../assets/images/mimi/activity_bg.jpg';
 import mimiIdleVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
@@ -125,7 +124,7 @@ const CameraPreviewCard = memo(function CameraPreviewCard({
 /* ─────────────────────────────────────────────────────────────
  *  MimiActivityOverlay
  * ───────────────────────────────────────────────────────────── */
-function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isParentMode = false }) {
+function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isParentMode = false, childName = '' }) {
   LOG.render('MimiActivityOverlay', `activityId=${activity.id} difficulty=${difficulty}`);
 
   /* ── Initial words ─────────────────────────────────────────── */
@@ -242,6 +241,15 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     };
   }, []); // eslint-disable-line
 
+  /* ── Parent mode: advance to intro once questions are ready ── */
+  useEffect(() => {
+    if (!isParentMode || loadingQ) return;
+    const name = childName || 'Student';
+    setStudentName(name);
+    setMimiVideo(mimiWaveVideo);
+    setPhase('intro');
+  }, [isParentMode, loadingQ, childName]); // eslint-disable-line
+
   /* ── Reset for next student ────────────────────────────────── */
   const resetForNextStudent = useCallback(() => {
     LOG.info('Session', 'Resetting for next student');
@@ -261,7 +269,15 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
         setPhase('intro');
       });
     }
-  }, [startCameraPoll, resetRecognized, clearPrefetch, isParentMode]);
+    // In parent mode, the loadingQ useEffect will re-trigger intro
+    // if questions need reloading, otherwise set directly
+    if (isParentMode) {
+      const name = childName || 'Student';
+      setStudentName(name);
+      setMimiVideo(mimiWaveVideo);
+      setPhase('intro');
+    }
+  }, [startCameraPoll, resetRecognized, clearPrefetch, isParentMode, childName]);
 
   /* ── voice-stop phase ──────────────────────────────────────── */
   useEffect(() => {
@@ -308,12 +324,20 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setMimiSaying(msg);
     LOG.phase('waiting', 'intro', { studentName });
 
-    // Fire TTS and move to asking after 1.8s — don't block on TTS completion
-    speak(msg).catch(() => {});
-    const t = setTimeout(() => {
+    // Prefetch first question TTS while greeting plays to avoid overlap
+    const firstItem = wordsRef.current[0];
+    const firstWord = getWordLabel(firstItem);
+    let firstMsg = '';
+    if      (activity.id === 9)  firstMsg = 'Look carefully\u2026 what do you see?';
+    else if (activity.id === 10) firstMsg = firstItem?.addend1 != null ? 'Count them all and tell me the total!' : 'Count the items and tell me how many!';
+    else if (activity.id === 11) firstMsg = 'What comes next in the pattern?';
+    else                          firstMsg = `Can you say\u2026 ${firstWord}?`;
+    prefetchTTS(firstMsg, 'q0');
+
+    // Wait for greeting TTS to fully finish before advancing — prevents overlap
+    speak(msg).catch(() => {}).finally(() => {
       if (mountedRef.current) setPhase('asking');
-    }, 1800);
-    return () => clearTimeout(t);
+    });
   }, [phase]); // eslint-disable-line
 
   /* ── ASKING ────────────────────────────────────────────────── */
@@ -391,10 +415,19 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     const heard    = (childSaid || '').trim().replace(/[.!?,;]+$/, '').toLowerCase();
     if (!heard) return false;
     const expected = word.toLowerCase();
+    // Direct match or substring
     if (heard.includes(expected) || expected.includes(heard)) return true;
+    // Number word equivalence
     const wfe = Object.keys(NUM_WORDS).find(k => NUM_WORDS[k] === expected);
     if (wfe && heard.includes(wfe)) return true;
     if (NUM_WORDS[expected] && heard.includes(NUM_WORDS[expected])) return true;
+    // Fuzzy: allow 1-char difference for short words (handles accent/SR drift)
+    if (expected.length >= 3) {
+      let diff = 0;
+      const a = heard.slice(0, expected.length);
+      for (let i = 0; i < expected.length; i++) if (a[i] !== expected[i]) diff++;
+      if (diff <= 1) return true;
+    }
     return false;
   }
 
@@ -647,9 +680,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     <div className="fixed inset-0 z-50 bg-cover bg-center overflow-hidden"
          style={{ backgroundImage: `url(${bgImage})`, fontFamily: "'Nunito','Fredoka One',sans-serif" }}>
 
-      {/* Difficulty badge */}
-      <div className="absolute top-3 right-3 z-50">
-        <span className={`px-3 py-1.5 rounded-full text-sm font-black border-2 ${DIFFICULTY_COLORS[difficulty]}`}>
+      {/* Difficulty badge — bottom-right so it never overlaps the student name at top */}
+      <div className="absolute bottom-4 right-4 z-50">
+        <span className={`px-3 py-1.5 rounded-full text-xs font-black border-2 ${DIFFICULTY_COLORS[difficulty]}`}>
           {DIFFICULTY_LABELS[difficulty]}
         </span>
       </div>
@@ -735,9 +768,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       <AnimatePresence>
         {studentName && !['waiting', 'between_students'].includes(phase) && (
           <motion.div initial={{ opacity: 0, y: -30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
-            className="absolute top-3 left-1/2 -translate-x-1/2 z-40 w-max max-w-[85vw]">
-            <div className="bg-white/95 backdrop-blur px-6 py-2 rounded-2xl border-2 border-purple-400 shadow-xl">
-              <h2 className="text-xl font-black text-purple-700 text-center" style={FONT_FREDOKA}>
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-[70vw]">
+            <div className="bg-white/95 backdrop-blur px-4 py-1.5 rounded-2xl border-2 border-purple-400 shadow-xl">
+              <h2 className="text-base sm:text-xl font-black text-purple-700 text-center truncate" style={FONT_FREDOKA}>
                 Hi {studentName}! 👋
               </h2>
             </div>
@@ -759,7 +792,8 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       )}
 
       {/* ── Main content ─────────────────────────────────────── */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-20 px-4 pb-28 sm:pb-0 sm:pr-[45%]">
+      {/* pb-36 keeps content above bottom controls on mobile; sm+ shifts left of Mimi */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center z-20 px-4 pb-36 sm:pb-4 sm:pr-[38%] lg:pr-[45%]">
         <AnimatePresence mode="wait">
 
           {phase === 'waiting' && (
@@ -864,35 +898,35 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
         </AnimatePresence>
       </div>
 
-      {/* Bottom controls */}
+      {/* Bottom controls — sits ABOVE Mimi, left-aligned so it never overlaps */}
       {!sessionEnded && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3">
+        <div className="absolute bottom-4 left-4 z-40 flex items-center gap-2">
           {studentName && !['waiting', 'between_students', 'done'].includes(phase) && (
             isPaused ? (
-              <motion.button onClick={handleResume} whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-base rounded-2xl shadow-xl border-4 border-emerald-700 transition-colors">
+              <motion.button onClick={handleResume} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm rounded-2xl shadow-xl border-4 border-emerald-700 transition-colors">
                 ▶ Resume
               </motion.button>
             ) : (
-              <motion.button onClick={handlePause} whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-2 px-6 py-3 bg-amber-400 hover:bg-amber-500 text-white font-black text-base rounded-2xl shadow-xl border-4 border-amber-600 transition-colors">
+              <motion.button onClick={handlePause} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-white font-black text-sm rounded-2xl shadow-xl border-4 border-amber-600 transition-colors">
                 ⏸ Pause
               </motion.button>
             )
           )}
-          <motion.button onClick={handleEndClick} whileHover={{ scale: 1.07 }} whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white font-black text-base rounded-2xl shadow-xl border-4 border-rose-700 transition-colors">
-            ⏹ End Session
+          <motion.button onClick={handleEndClick} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-sm rounded-2xl shadow-xl border-4 border-rose-700 transition-colors">
+            ⏹ End
           </motion.button>
         </div>
       )}
 
-      {/* Mimi character */}
+      {/* Mimi character — right side, never overlaps left-aligned controls */}
       <div className="absolute bottom-0 right-0 sm:right-[2%] z-10 pointer-events-none">
-        <motion.div key={mimiVideo} initial={{ scale: 0.8, opacity: 0, y: 50 }}
+        <motion.div key={mimiVideo} initial={{ scale: 0.9, opacity: 0, y: 30 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
-          transition={{ type: 'spring', damping: 12, stiffness: 100 }}
-          className="w-40 h-40 sm:w-72 sm:h-72 lg:w-[500px] lg:h-[500px]">
+          transition={{ type: 'spring', damping: 18, stiffness: 120 }}
+          className="w-36 h-36 sm:w-64 sm:h-64 lg:w-[460px] lg:h-[460px]">
           <video key={mimiVideo} src={mimiVideo} autoPlay loop muted playsInline
             className="w-full h-full object-contain" style={{ background: 'transparent' }} />
         </motion.div>

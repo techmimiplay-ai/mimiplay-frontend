@@ -1,154 +1,137 @@
-// import React, { useRef, useEffect, useState, Suspense } from 'react';
-// import { Canvas, useFrame } from '@react-three/fiber';
-// import { useGLTF, useAnimations, OrbitControls } from '@react-three/drei';
+import { useEffect, useRef } from 'react'
 
-// // Available outfits — add more GLB files here as you create them
-// const OUTFITS = {
-//   uniform: '/mimi_uniform_model.glb',
-//   frock:   '/mimi_frock_model.glb',
-// };
+export default function MimiCharacter({ modelRef, stateRef: stateRefProp, isSpeaking, sessionState }) {
+  const canvasRef   = useRef(null)
+  const appRef      = useRef(null)
+  const stateRef    = useRef({
+    ready:        false,
+    isSpeaking:   false,
+    sessionState: 'idle',
+    blinkOpen:    true,
+    blinkTimer:   0,
+    breathT:      0,
+    mouthOpen:    false,
+    mouthTimer:   0,
+    mouseX:       0,
+    mouseY:       0,
+    overrides:    {},   // { paramId: value } — ticker skips these params while set
+  })
 
-// // Animation states your app will use
-// // 'idle'          → she's listening/waiting
-// // 'greet_02'      → greeting when app opens
-// // 'clap'          → positive reaction
-// // 'agree'         → nodding/agreeing
-// // 'afraid'        → confused/error state
-// // 'wave_goodbye_02' → user closes chat
-// // 'talking'       → code-driven, no GLB animation needed
+  // keep stateRef in sync with props so the ticker always sees latest values
+  useEffect(() => { stateRef.current.isSpeaking   = isSpeaking   }, [isSpeaking])
+  useEffect(() => { stateRef.current.sessionState = sessionState }, [sessionState])
 
-// function Model({ outfit, animationState, isTalking, audioLevel }) {
-//   const modelRef = useRef();
-//   const headRef = useRef();
+  // ── Mouse tracking ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const onMove = (e) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const r = canvas.getBoundingClientRect()
+      stateRef.current.mouseX = ((e.clientX - r.left)  / r.width  - 0.5) * 2
+      stateRef.current.mouseY = ((e.clientY - r.top)   / r.height - 0.5) * 2
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [])
 
-//   const { scene, nodes, animations } = useGLTF(OUTFITS[outfit] || OUTFITS.uniform);
-//   const { actions, names } = useAnimations(animations, modelRef);
+  // ── Init ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    let destroyed = false
 
-//   // Log all bones — paste this output here so we can drive the jaw/head
-//   useEffect(() => {
-//     console.log('=== ANIMATION NAMES ===', names);
-//     console.log('=== ALL BONES ===');
-//     scene.traverse((obj) => {
-//       if (obj.isBone) console.log('BONE:', obj.name);
-//       // Find head bone for talking animation
-//       if (obj.name.toLowerCase().includes('head') && obj.isBone) {
-//         headRef.current = obj;
-//         console.log('HEAD BONE FOUND:', obj.name);
-//       }
-//     });
-//   }, [scene, names]);
+    async function init() {
+      const PIXI = await import('pixi.js')
+      const { Live2DModel } = await import('pixi-live2d-display/cubism4')
+      Live2DModel.registerTicker(PIXI.Ticker)
 
-//   useEffect(() => {
-//   console.log('=== ALL MESHES ===');
-//   scene.traverse((obj) => {
-//     if (obj.isMesh) {
-//       console.log('MESH:', obj.name);
-//       // Check for morph targets
-//       if (obj.morphTargetDictionary) {
-//         console.log('  MORPH TARGETS:', Object.keys(obj.morphTargetDictionary));
-//       }
-//     }
-//   });
+      appRef.current = new PIXI.Application({
+        view: canvasRef.current,
+        width: 440,
+        height: 540,
+        backgroundAlpha: 0,
+        autoDensity: true,
+        resolution: Math.max(window.devicePixelRatio || 1, 1),
+      })
 
-  
-// }, [scene]);
+      const model = await Live2DModel.from(
+        '/mimi-rigged-animate/mimi.model3.json'
+      )
+      if (destroyed) return
 
-// useEffect(() => {
-//   if (scene) {
-//     console.log("--- Scanning Model for Facial Controls ---");
-    
-//     scene.traverse((child) => {
-//       // Check for meshes that have a morphTargetDictionary
-//       if (child.isMesh && child.morphTargetDictionary) {
-//         console.log(`Found controls on Mesh: "${child.name}"`, child.morphTargetDictionary);
-//       }
-      
-//       // Also apply your clothing texture here to keep things efficient
-//       if (child.isMesh) {
-//         // child.material.map = texture;
-//         child.material.needsUpdate = true;
-//       }
-//     });
-//   }
-// }, [scene]);
+      appRef.current.stage.addChild(model)
+      model.scale.set(0.18)
+      model.x = 220
+      model.y = 520
+      model.anchor.set(0.5, 1)
 
+      if (modelRef) modelRef.current = model
+      if (stateRefProp) stateRefProp.current = stateRef.current
+      stateRef.current.ready = true
 
-//   // Play skeletal animation when animationState changes
-//   useEffect(() => {
-//     if (!actions || names.length === 0) return;
+      // Build index map once for fast lookup
+      const ids = model.internalModel.coreModel._parameterIds
+      const idx = {}
+      ids.forEach((id, i) => { idx[id] = i })
+      const vals = model.internalModel.coreModel._parameterValues
+      const set  = (id, v) => { if (idx[id] !== undefined) vals[idx[id]] = v }
 
-//     // Stop all current animations
-//     Object.values(actions).forEach(a => a.fadeOut(0.3));
+      // ── Ticker: drive ALL parameters here so nothing gets overwritten ──
+      appRef.current.ticker.add(() => {
+        const s = stateRef.current
+        if (!s.ready) return
+        const now = Date.now()
 
-//     // Don't play a skeletal anim when talking — we drive it with code below
-//     if (animationState === 'talking') return;
+        const ov = s.overrides
+        const sv = (id, v) => { if (!(id in ov)) set(id, v) }
 
-//     // Try to play the requested animation, fallback to idle
-//     const target = actions[animationState] || actions['idle'] || Object.values(actions)[0];
-//     if (target) target.reset().fadeIn(0.3).play();
-//   }, [animationState, actions, names]);
+        // Breathing
+        s.breathT += 0.002
+        sv('ParamBreath', (Math.sin(s.breathT) + 1) / 2)
 
-//   // Procedural animation loop
-//   useFrame((state) => {
-//     const t = state.clock.getElapsedTime();
-//     if (!modelRef.current) return;
+        // Blink
+        if (now - s.blinkTimer > 3500) {
+          s.blinkTimer = now
+          s.blinkOpen  = false
+          setTimeout(() => { s.blinkOpen = true }, 150)
+        }
+        sv('ParamEyeLOpen', s.blinkOpen ? 1 : 0)
+        sv('ParamEyeROpen', s.blinkOpen ? 1 : 0)
 
-//     if (animationState === 'talking' || isTalking) {
-//       // --- TALKING: code-driven head movement synced to audio ---
-//       // audioLevel should be 0-1 from Web Audio API (0 = silent, 1 = loud)
-//       const volume = audioLevel || Math.abs(Math.sin(t * 8)) * 0.5; // fallback sine wave
+        // Mouth
+        if (s.isSpeaking) {
+          if (now - s.mouthTimer > 180) {
+            s.mouthTimer = now
+            s.mouthOpen  = !s.mouthOpen
+          }
+        } else {
+          s.mouthOpen = false
+        }
+        sv('ParamMouthOpenY', s.mouthOpen ? 1 : 0)
 
-//       // Head nods on syllables
-//       if (headRef.current) {
-//         headRef.current.rotation.x = -volume * 0.15; // nod forward when speaking
-//         headRef.current.rotation.z = Math.sin(t * 3) * 0.04; // slight tilt
-//       }
+        // Head tilt
+        sv('ParamAngleZ', s.sessionState === 'running' ? -8 : 0)
 
-//       // Body leans slightly forward when talking
-//       modelRef.current.rotation.x = volume * 0.03;
-//       modelRef.current.rotation.z = Math.sin(t * 1.5) * 0.02;
-//       modelRef.current.position.y = -1 + Math.sin(t * 2) * 0.01;
+        // Mouse → head + eyes + body
+        sv('ParamAngleX',     s.mouseX *  20)
+        sv('ParamAngleY',    -s.mouseY *  15)
+        sv('ParamEyeBallX',   s.mouseX *  0.8)
+        sv('ParamEyeBallY',  -s.mouseY *  0.8)
+        sv('ParamBodyAngleX', s.mouseX *  8)
+      })
+    }
 
-//     } else {
-//       // --- IDLE BREATHING: subtle procedural on top of skeletal ---
-//       modelRef.current.position.y = -1 + Math.sin(t * 1.2) * 0.02;
-//       modelRef.current.rotation.z = Math.sin(t * 0.4) * 0.01;
-//     }
-//   });
+    init().catch(console.error)
 
-//   return (
-//     <primitive
-//       ref={modelRef}
-//       object={scene}
-//       scale={2.2}
-//       position={[0, -1, 0]}
-//     />
-//   );
-// }
+    return () => {
+      destroyed = true
+      stateRef.current.ready = false
+      if (appRef.current) {
+        appRef.current.destroy(false, { children: true })
+        appRef.current = null
+      }
+    }
+  }, [])
 
-// export default function MimiCharacter({
-//   outfit = 'uniform',        // 'uniform' | 'frock'
-//   animationState = 'idle',   // 'idle' | 'talking' | 'greet_02' | 'clap' | 'agree' | 'afraid' | 'wave_goodbye_02'
-//   isTalking = false,
-//   audioLevel = 0,            // 0-1 float from Web Audio API
-// }) {
-//   return (
-//     <div style={{ width: '100%', height: '500px' }}>
-//       <Canvas camera={{ position: [0, 1.2, 3], fov: 40 }}>
-//         <ambientLight intensity={1.5} />
-//         <pointLight position={[10, 10, 10]} intensity={2} />
-//         <pointLight position={[-10, 5, -5]} intensity={1} />
-//         <directionalLight position={[0, 5, 5]} intensity={1.5} />
-//         <Suspense fallback={null}>
-//           <Model
-//             outfit={outfit}
-//             animationState={animationState}
-//             isTalking={isTalking}
-//             audioLevel={audioLevel}
-//           />
-//           <OrbitControls enablePan={false} target={[0, 0.5, 0]} />
-//         </Suspense>
-//       </Canvas>
-//     </div>
-//   );
-// }
+  return (
+    <canvas ref={canvasRef} style={{ width: '440px', height: '540px' }} />
+  )
+}

@@ -254,7 +254,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../../config';
-import { Button, Card, Input } from '../../shared';
+import { Button, Card, Input, Modal } from '../../shared';
 import { Save, User, Mail, Phone, Lock, Bell, Palette } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -275,6 +275,9 @@ const SettingsTab = () => {
   const [loading,     setLoading]     = useState(true);
   const [saveStatus,  setSaveStatus]  = useState('');
   const [error,       setError]       = useState('');
+  const [showPwModal, setShowPwModal] = useState(false);
+  const [pwData,      setPwData]      = useState({ current: '', next: '', confirm: '' });
+  const [pwError,     setPwError]     = useState('');
 
   const parentId = localStorage.getItem('userId') || localStorage.getItem('user_id');
 
@@ -488,8 +491,9 @@ const SettingsTab = () => {
           Security
         </h3>
         <div className="space-y-3">
-          <Button variant="outline" className="w-full">Change Password</Button>
-          <Button variant="outline" className="w-full">Two-Factor Authentication</Button>
+          <Button variant="outline" className="w-full" onClick={() => { setPwData({ current: '', next: '', confirm: '' }); setPwError(''); setShowPwModal(true); }}>
+            Change Password
+          </Button>
         </div>
       </Card>
 
@@ -497,6 +501,48 @@ const SettingsTab = () => {
       <Button variant="primary" icon={Save} onClick={handleSave} className="w-full">
         Save All Changes
       </Button>
+
+      {/* Change Password Modal */}
+      <Modal isOpen={showPwModal} onClose={() => setShowPwModal(false)} title="Change Password" size="sm">
+        <div className="space-y-4">
+          {pwError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-red-700 text-sm font-semibold">
+              ❌ {pwError}
+            </div>
+          )}
+          <Input label="Current Password" type="password" icon={Lock}
+            placeholder="Enter current password"
+            value={pwData.current}
+            onChange={e => setPwData(p => ({ ...p, current: e.target.value }))} />
+          <Input label="New Password" type="password" icon={Lock}
+            placeholder="Enter new password"
+            value={pwData.next}
+            onChange={e => setPwData(p => ({ ...p, next: e.target.value }))} />
+          <Input label="Confirm New Password" type="password" icon={Lock}
+            placeholder="Confirm new password"
+            value={pwData.confirm}
+            onChange={e => setPwData(p => ({ ...p, confirm: e.target.value }))} />
+          <div className="flex gap-3">
+            <Button variant="primary" className="flex-1" onClick={async () => {
+              setPwError('');
+              if (!pwData.current || !pwData.next) { setPwError('All fields are required.'); return; }
+              if (pwData.next !== pwData.confirm) { setPwError('Passwords do not match.'); return; }
+              if (pwData.next.length < 6) { setPwError('Password must be at least 6 characters.'); return; }
+              try {
+                await axios.post(`${API_BASE_URL}/api/parent/change-password`, {
+                  parent_id: parentId, current_password: pwData.current, new_password: pwData.next,
+                });
+                setShowPwModal(false);
+                setSaveStatus('✅ Password changed successfully!');
+                setTimeout(() => setSaveStatus(''), 3000);
+              } catch (err) {
+                setPwError(err.response?.data?.message || 'Failed. Check your current password.');
+              }
+            }}>Save</Button>
+            <Button variant="outline" className="flex-1" onClick={() => setShowPwModal(false)}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

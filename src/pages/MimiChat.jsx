@@ -8,22 +8,24 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { API_ENDPOINTS } from '../config'
-import { ListeningIndicator } from '../components/mimi/ui-elements'
 
 // import bgImage       from '../assets/images/mimi/bg.jpg'
 import useMimiCustomizer from '../hooks/useMimiCustomizer'
 import MimiCustomizer from '../components/mimi/MimiCustomizer'
-import mimiIdleVideo from '../assets/images/mimi/mimiidell_nobg.webm'
-import mimiWaveVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
+// ── TODO: Uncomment when MimiCharacter (Live2D) design is ready ──
+// import MimiCharacter from '../components/mimi/MimiCharacter'
+import mimiVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Logging
+// Logging — dev only, silent in production
 // ─────────────────────────────────────────────────────────────────────────────
-const log = (area, msg, data) => {
-  const ts = new Date().toISOString().slice(11, 23)
-  if (data !== undefined) console.log(`[${ts}] [${area}] ${msg}`, data)
-  else                    console.log(`[${ts}] [${area}] ${msg}`)
-}
+const log = import.meta.env.DEV
+  ? (area, msg, data) => {
+      const ts = new Date().toISOString().slice(11, 23)
+      if (data !== undefined) console.log(`[${ts}] [${area}] ${msg}`, data)
+      else                    console.log(`[${ts}] [${area}] ${msg}`)
+    }
+  : () => {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Keyword helpers
@@ -72,8 +74,25 @@ const Sparkle = ({ emoji, style, duration = 4 }) => (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pastel design tokens
+// Silence detection — checks if audio blob is just background noise
+// Returns true if the audio is too quiet to be real speech
 // ─────────────────────────────────────────────────────────────────────────────
+const isSilence = async (blob) => {
+  try {
+    const arrayBuffer = await blob.arrayBuffer()
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer)
+    const data = audioBuffer.getChannelData(0)
+    let sum = 0
+    for (let i = 0; i < data.length; i++) sum += data[i] * data[i]
+    const rms = Math.sqrt(sum / data.length)
+    audioCtx.close()
+    return rms < 0.015  // below this threshold = silence
+  } catch {
+    return false  // if check fails, send anyway
+  }
+}
+
 const P = {
   // Card backgrounds — soft white with gentle tint
   cardWhite:  'rgba(255,255,255,0.92)',
@@ -153,6 +172,9 @@ const MimiChat = () => {
   const greetingActiveRef   = useRef(false)
   const consecutiveFailsRef = useRef(0)
   const recordingStartRef   = useRef(0)
+  // ── TODO: Uncomment when MimiCharacter (Live2D) design is ready ──
+  // const live2dRef      = useRef(null)
+  // const live2dStateRef  = useRef(null)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -223,45 +245,48 @@ const MimiChat = () => {
     }
   }
 
-  // ── Typewriter ────────────────────────────────────────────────────────────
+  // ── Typewriter — speed scales with text length so long responses aren't slow
   useEffect(() => {
     if (!mimiText) { setDisplayedText(''); setIsTyping(false); return }
     setDisplayedText(''); setIsTyping(true)
     const chars = Array.from(mimiText)
+    // Cap at 18ms per char so long responses finish in ~3s max
+    const delay = Math.min(18, Math.max(8, Math.floor(2400 / chars.length)))
     let i = 0
     const t = setInterval(() => {
       i++
       setDisplayedText(chars.slice(0, i).join(''))
       if (i >= chars.length) { clearInterval(t); setIsTyping(false) }
-    }, 30)
+    }, delay)
     return () => clearInterval(t)
   }, [mimiText])
 
-  // ── Answer timer ──────────────────────────────────────────────────────────
+  // ── Answer timer — only starts after speaking AND typing both finish
   useEffect(() => {
-    if (!mimiText || aiPhase !== 'responding' || isSpeaking) { setAnswerTimer(0); return }
-    setAnswerTimer(8)
+    if (!mimiText || isSpeaking || isTyping) { setAnswerTimer(0); return }
+    if (aiPhase !== 'responding' && aiPhase !== 'listening') { setAnswerTimer(0); return }
+    setAnswerTimer(12)
     const iv = setInterval(() => {
       setAnswerTimer(prev => {
         if (prev <= 1) {
           clearInterval(iv)
-          if (!isSpeakingRef.current) {
-            setMimiText(''); setDisplayedText(''); setImageUrl(null); setYtVideo(null)
-            setAiPhaseSync('listening')
-          }
+          setMimiText(''); setDisplayedText(''); setImageUrl(null); setYtVideo(null)
+          setAiPhaseSync('listening')
           return 0
         }
         return prev - 1
       })
     }, 1000)
     return () => clearInterval(iv)
-  }, [mimiText, aiPhase, isSpeaking])
+  }, [mimiText, aiPhase, isSpeaking, isTyping])
 
   const clearResponse = useCallback(() => {
     setMimiText(''); setDisplayedText('')
-    setImageUrl(null); setYtVideo(null)
-    setYtPlaying(false); setAnswerTimer(0)
-  }, [])
+    setImageUrl(null)
+    // Only clear ytVideo if not currently playing — let the user watch it
+    if (!ytPlaying) { setYtVideo(null) }
+    setAnswerTimer(0)
+  }, [ytPlaying])
 
   // ── Face detection ────────────────────────────────────────────────────────
   const startFaceDetection = useCallback(async () => {
@@ -434,6 +459,13 @@ const MimiChat = () => {
         const blob     = new Blob(chunks, { type: 'audio/webm' })
         const duration = Date.now() - recordingStartRef.current
         log('MIC', `⏹ stopped — blob=${blob.size}b | duration=${duration}ms`)
+        // ── Silence check: skip sending if no real speech detected ──
+        const silent = await isSilence(blob)
+        if (silent) {
+          log('MIC', 'silence detected — skipping send')
+          setAiPhaseSync('listening')
+          return
+        }
         if (sessionStateRef.current === 'running') {
           log('MIC', '→ showing Thinking…'); setAiPhaseSync('generating')
         }
@@ -473,6 +505,9 @@ const MimiChat = () => {
 
   const embedUrl      = getYtEmbedUrl(ytVideo)
   const showListening = sessionState === 'running' && aiPhase === 'listening' && !isSpeaking
+  // Show response panel: text response OR an active YouTube video
+  const showResponse  = sessionState === 'running' &&
+    ((!!mimiText && (aiPhase === 'responding' || aiPhase === 'listening')) || !!ytVideo)
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -482,9 +517,8 @@ const MimiChat = () => {
       position: 'relative', minHeight: '100vh', width: '100%', overflow: 'hidden',
       // backgroundImage: `url(${bgImage})`,
       backgroundImage: currentBgStyle,
-      backgroundSize: 'cover',
+      backgroundSize: '100% 100%',
       backgroundPosition: 'center',
-      // backgroundSize: 'cover', backgroundPosition: 'center',
       fontFamily: "'Nunito', 'Varela Round', 'Comic Sans MS', cursive",
     }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
@@ -495,12 +529,7 @@ const MimiChat = () => {
         background: 'linear-gradient(to top, rgba(0,0,0,0.12) 0%, transparent 40%)',
       }} />
 
-      {/* Gentle floating sparkles — small, soft, non-distracting */}
-      <Sparkle emoji="✨" style={{ top: '7%',  left: '6%'  }} duration={4.2} />
-      <Sparkle emoji="⭐" style={{ top: '14%', right: '7%' }} duration={3.8} />
-      <Sparkle emoji="🌸" style={{ top: '28%', left: '4%'  }} duration={5.1} />
-      <Sparkle emoji="🦋" style={{ top: '22%', right: '4%' }} duration={4.6} />
-      <Sparkle emoji="🌟" style={{ top: '5%',  left: '45%' }} duration={3.5} />
+
 
       {/* ── Error banner ────────────────────────────────────────────────── */}
       <AnimatePresence>
@@ -523,8 +552,9 @@ const MimiChat = () => {
 
       {/* ── Top Bar ───────────────────────────────────────────────────────── */}
       <div style={{
-        position: 'absolute', top: 18, right: 18, zIndex: 50,
-        display: 'flex', alignItems: 'center', gap: 10,
+        position: 'absolute', top: 10, left: 8, right: 8, zIndex: 50,
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        gap: 6, flexWrap: 'wrap',
       }}>
 
         {/* Student name */}
@@ -537,8 +567,11 @@ const MimiChat = () => {
               transition={{ type: 'spring', stiffness: 380, damping: 22 }}
               style={softPill('rgba(253,232,255,0.95)', '0 4px 16px rgba(167,139,250,0.2)')}
             >
-              <span style={{ fontSize: 18 }}>🌸</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#7c3aed' }}>{studentName}</span>
+              <span style={{ fontSize: 16 }}>🌸</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#7c3aed',
+                maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {studentName}
+              </span>
             </motion.div>
           )}
         </AnimatePresence>
@@ -551,11 +584,11 @@ const MimiChat = () => {
             style={{
               ...softPill('rgba(219,234,254,0.97)', '0 4px 16px rgba(96,165,250,0.25)'),
               cursor: 'pointer', border: '2px solid rgba(147,197,253,0.8)',
-              fontFamily: 'inherit',
+              fontFamily: 'inherit', padding: '6px 12px',
             }}
           >
-            <span style={{ fontSize: 18 }}>🎈</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#1d4ed8' }}>Let's Start!</span>
+            <span style={{ fontSize: 16 }}>🎈</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#1d4ed8' }}>Let's Start!</span>
           </motion.button>
         )}
 
@@ -566,11 +599,11 @@ const MimiChat = () => {
             style={{
               ...softPill('rgba(254,226,226,0.97)', '0 4px 16px rgba(252,165,165,0.25)'),
               cursor: 'pointer', border: '2px solid rgba(252,165,165,0.8)',
-              fontFamily: 'inherit',
+              fontFamily: 'inherit', padding: '6px 12px',
             }}
           >
-            <span style={{ fontSize: 18 }}>👋</span>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#b91c1c' }}>Bye Alexi!</span>
+            <span style={{ fontSize: 16 }}>👋</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#b91c1c' }}>Bye Alexi!</span>
           </motion.button>
         )}
 
@@ -578,21 +611,24 @@ const MimiChat = () => {
         <motion.div
           animate={sessionState === 'running' ? { scale: [1, 1.04, 1] } : {}}
           transition={{ duration: 2.5, repeat: Infinity }}
-          style={softPill(
-            sessionState === 'running'   ? 'rgba(209,250,229,0.97)' :
-            sessionState === 'detecting' ? 'rgba(254,249,195,0.97)' :
-                                           'rgba(243,244,246,0.97)',
-            '0 4px 16px rgba(0,0,0,0.08)'
-          )}
+          style={{
+            ...softPill(
+              sessionState === 'running'   ? 'rgba(209,250,229,0.97)' :
+              sessionState === 'detecting' ? 'rgba(254,249,195,0.97)' :
+                                             'rgba(243,244,246,0.97)',
+              '0 4px 16px rgba(0,0,0,0.08)'
+            ),
+            padding: '6px 10px',
+          }}
         >
           <motion.span
             animate={sessionState === 'running' ? { opacity: [1, 0.4, 1] } : {}}
             transition={{ duration: 1.5, repeat: Infinity }}
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 10 }}
           >
             {sessionState === 'running' ? '🟢' : sessionState === 'detecting' ? '🟡' : '⚪'}
           </motion.span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: P.dark }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: P.dark }}>
             {sessionState === 'idle'      ? 'Ready'     :
              sessionState === 'detecting' ? 'Looking…'  :
              sessionState === 'running'   ? 'Playing!'  : 'Done!'}
@@ -829,95 +865,40 @@ const MimiChat = () => {
       </AnimatePresence>
 
       {/* ── Main Stage ────────────────────────────────────────────────────── */}
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', zIndex: 2 }}>
-
-        {/* Mimi avatar */}
-        <div style={{ position: 'relative', flexShrink: 0, width: 440, height: 540 }}>
-          <AnimatePresence mode="wait">
-            {sessionState === 'running' ? (
-              <motion.video key="wave" src={mimiWaveVideo} autoPlay loop muted playsInline
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            ) : (
-              <motion.video key="idle" src={mimiIdleVideo} autoPlay loop muted playsInline
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Listening indicator — soft & friendly */}
-        <AnimatePresence>
-          {showListening && (
-            <motion.div
-              key="listening"
-              initial={{ opacity: 0, scale: 0.8, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.8, y: 8 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-              style={{ marginBottom: 88, marginLeft: 10 }}
-            >
-              <div style={{
-                background: 'rgba(255,255,255,0.95)',
-                borderRadius: 20, padding: '10px 18px',
-                display: 'flex', alignItems: 'center', gap: 10,
-                border: '2px solid rgba(167,139,250,0.3)',
-                boxShadow: '0 6px 20px rgba(167,139,250,0.15)',
-              }}>
-                <motion.span
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                  style={{ fontSize: 20 }}
-                >
-                  🎤
-                </motion.span>
-
-                {/* Animated sound bars */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  {[0, 0.15, 0.3, 0.15, 0].map((delay, i) => (
-                    <motion.div key={i}
-                      animate={{ height: [5, 16, 5] }}
-                      transition={{ duration: 0.65, repeat: Infinity, delay }}
-                      style={{
-                        width: 3.5, minHeight: 5,
-                        background: `linear-gradient(to top, ${P.purple}, ${P.blue})`,
-                        borderRadius: 3,
-                      }}
-                    />
-                  ))}
-                </div>
-
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>
-                  I'm listening!
-                </span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Response panel */}
+      {/* On mobile: stack vertically (column). On desktop: row with avatar left, response right */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+      }}>
+        {/* Response panel — sits at TOP on mobile so it's always visible */}
         <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          paddingRight: 20, paddingBottom: 32, paddingLeft: 8,
-          maxHeight: '90vh', overflowY: 'auto',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-start',
+          padding: '80px 10px 8px',
+          overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          maxHeight: '60vh',
         }}>
           <AnimatePresence>
-            {mimiText && sessionState === 'running' && aiPhase === 'responding' && (
+            {showResponse && (
               <motion.div
                 key={mimiText}
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                initial={{ opacity: 0, y: -16, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                exit={{ opacity: 0, y: -16, scale: 0.97 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 26 }}
                 style={{
                   background: 'rgba(255,255,255,0.97)',
-                  borderRadius: 24, overflow: 'hidden',
+                  borderRadius: 20, overflow: 'hidden',
                   border: '2px solid rgba(147,197,253,0.4)',
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                  maxWidth: 480,
+                  width: '100%',
+                  alignSelf: 'center',
                 }}
               >
                 {/* Header */}
@@ -953,8 +934,8 @@ const MimiChat = () => {
                 {/* Answer text */}
                 <div style={{ padding: '14px 18px' }}>
                   <p style={{
-                    fontSize: 19, fontWeight: 700, color: P.dark,
-                    lineHeight: 1.65, minHeight: 44, margin: 0,
+                    fontSize: 15, fontWeight: 700, color: P.dark,
+                    lineHeight: 1.6, minHeight: 36, margin: 0,
                   }}>
                     {displayedText}
                     {isTyping && (
@@ -974,7 +955,7 @@ const MimiChat = () => {
                       initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
                       src={imageUrl} alt="result" referrerPolicy="no-referrer"
                       style={{
-                        maxHeight: 190, maxWidth: '100%', margin: '0 auto', display: 'block',
+                        maxHeight: 160, maxWidth: '100%', margin: '0 auto', display: 'block',
                         borderRadius: 16, objectFit: 'contain',
                         boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
                         border: '2px solid rgba(224,242,254,0.8)',
@@ -988,7 +969,7 @@ const MimiChat = () => {
                   <div style={{ padding: '0 18px 14px' }}>
                     <motion.div
                       initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-                      style={{ marginLeft: 'auto', width: 290 }}
+                      style={{ width: '100%', maxWidth: 320, margin: '0 auto' }}
                     >
                       <div style={{
                         borderRadius: 16, overflow: 'hidden', aspectRatio: '16/9',
@@ -1012,6 +993,84 @@ const MimiChat = () => {
                     </motion.div>
                   </div>
                 )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Bottom row: avatar + listening indicator */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', flexShrink: 0 }}>
+
+          {/* Mimi avatar */}
+          {/*
+            ── TODO: Replace video below with MimiCharacter when Live2D design is ready ──
+            Steps to restore:
+              1. Uncomment MimiCharacter import at top of file
+              2. Uncomment live2dRef and live2dStateRef in the Refs section
+              3. Replace the <video> block below with:
+                 <div style={{ position: 'relative', flexShrink: 0, width: 'clamp(130px, 30vw, 400px)', height: 'clamp(160px, 37vw, 490px)' }}>
+                   <MimiCharacter
+                     modelRef={live2dRef}
+                     stateRef={live2dStateRef}
+                     isSpeaking={isSpeaking}
+                     sessionState={sessionState}
+                   />
+                 </div>
+              4. Remove the <video> block and mimiVideo import
+          */}
+          <div style={{ position: 'relative', flexShrink: 0, width: 'clamp(130px, 30vw, 400px)', height: 'clamp(160px, 37vw, 490px)' }}>
+            <video
+              src={mimiVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          </div>
+
+          {/* Listening indicator */}
+          <AnimatePresence>
+            {showListening && (
+              <motion.div
+                key="listening"
+                initial={{ opacity: 0, scale: 0.8, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: 8 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+                style={{ marginBottom: 60, marginLeft: 8 }}
+              >
+                <div style={{
+                  background: 'rgba(255,255,255,0.95)',
+                  borderRadius: 20, padding: '10px 18px',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  border: '2px solid rgba(167,139,250,0.3)',
+                  boxShadow: '0 6px 20px rgba(167,139,250,0.15)',
+                }}>
+                  <motion.span
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity }}
+                    style={{ fontSize: 20 }}
+                  >
+                    🎤
+                  </motion.span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {[0, 0.15, 0.3, 0.15, 0].map((delay, i) => (
+                      <motion.div key={i}
+                        animate={{ height: [5, 16, 5] }}
+                        transition={{ duration: 0.65, repeat: Infinity, delay }}
+                        style={{
+                          width: 3.5, minHeight: 5,
+                          background: `linear-gradient(to top, ${P.purple}, ${P.blue})`,
+                          borderRadius: 3,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>
+                    I'm listening!
+                  </span>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

@@ -13,6 +13,7 @@ const ReportsTab = () => {
 
   const [filterActivity, setFilterActivity] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [toastMsg, setToastMsg] = useState('');
   const [classStats, setClassStats] = useState({
     avgScore: 0,
     totalActivities: 0,
@@ -33,7 +34,8 @@ const ReportsTab = () => {
         params: {
           start_date: dateRange.start,
           end_date: dateRange.end
-        }
+        },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
 
       // Axios mein data direct response.data mein milta hai
@@ -60,13 +62,30 @@ const ReportsTab = () => {
     fetchReports();
   }, [dateRange]);
 
-  const downloadReport = () => {
-    alert('Downloading PDF report... (Feature coming soon)');
-  };
+  const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
 
-  const emailParents = () => {
-    alert('Sending reports to parents... (Feature coming soon)');
+  const downloadReport = () => {
+    if (!topPerformers.length && !activityBreakdown.length) {
+      alert('No report data to download yet.');
+      return;
+    }
+    const rows = [
+      ['Student', 'Score', 'Stars', 'Trend'],
+      ...topPerformers.map(s => [s.name, s.score, s.stars, s.trend]),
+      [],
+      ['Activity', 'Completed', 'Avg Score', 'Success %'],
+      ...activityBreakdown.map(a => [a.activity, a.completed, a.avgScore, a.percentage]),
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `class-report-${dateRange.start}-to-${dateRange.end}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
+  const emailParents  = () => showToast('Email to parents coming soon!');
 
   if (loading) return (
     <div className="flex h-64 items-center justify-center">
@@ -76,6 +95,12 @@ const ReportsTab = () => {
 
   return (
     <div className="space-y-6">
+      {toastMsg && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-700 text-sm font-semibold">
+          ℹ️ {toastMsg}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
@@ -89,6 +114,9 @@ const ReportsTab = () => {
           <Button variant="primary" icon={Download} onClick={downloadReport} className="w-full sm:w-auto">
             Download Report
           </Button>
+          <button onClick={fetchReports} className="text-sm text-primary-600 hover:underline font-semibold whitespace-nowrap">
+            🔄 Refresh
+          </button>
         </div>
       </div>
 

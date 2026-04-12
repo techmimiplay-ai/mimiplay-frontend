@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import axios from 'axios'
+import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
+import { ToastProvider } from './context/ToastContext.jsx'
 
 const isPublicApiRequest = (url) => {
   if (!url) return false;
@@ -53,41 +55,37 @@ axios.interceptors.response.use(
   }
 );
 
-// Global fetch wrapper for token check + redirect
+// Global fetch wrapper — injects auth token and handles 401/403
 const originalFetch = window.fetch;
-window.fetch = async (input, init = {}) => {
-  const url = typeof input === 'string' ? input : input?.url;
+window.fetch = (input, init = {}) => {
+  const url   = typeof input === 'string' ? input : input?.url ?? '';
   const token = localStorage.getItem('token');
 
   if (!token && !isPublicApiRequest(url)) {
     window.location.href = '/login';
-    return Promise.reject(new Error('No token found, redirecting to login'));
+    return Promise.reject(new Error('No token'));
   }
 
   if (token) {
-    init.headers = init.headers || {};
-    if (init.headers instanceof Headers) {
-      init.headers.set('Authorization', `Bearer ${token}`);
-    } else if (Array.isArray(init.headers)) {
-      const existing = Object.fromEntries(init.headers);
-      existing['Authorization'] = `Bearer ${token}`;
-      init.headers = existing;
-    } else {
-      init.headers = { ...init.headers, Authorization: `Bearer ${token}` };
+    const headers = new Headers(init.headers || {});
+    if (!headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+    init = { ...init, headers };
+  }
+
+  return originalFetch(input, init).then(response => {
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      window.location.href = '/login';
     }
-  }
-
-  const response = await originalFetch(input, init);
-
-  if (response.status === 401 || response.status === 403) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    window.location.href = '/login';
-  }
-
-  return response;
+    return response;
+  });
 };
 
 createRoot(document.getElementById('root')).render(
-    <App />
+  <ErrorBoundary>
+    <ToastProvider>
+      <App />
+    </ToastProvider>
+  </ErrorBoundary>
 )

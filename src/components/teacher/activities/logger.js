@@ -19,36 +19,24 @@
  */
 
 const _start = Date.now();
+const _isDev = import.meta.env.DEV;
 
 const LOG = {
   _ts:   ()            => `+${Date.now() - _start}ms`,
-  info:  (tag, msg, d) => console.log (`[LOG] [${LOG._ts()}] [${tag}]`, msg, d ?? ''),
-  warn:  (tag, msg, d) => console.warn(`[WARN][${LOG._ts()}] [${tag}]`, msg, d ?? ''),
+  info:  (tag, msg, d) => { if (_isDev) console.log (`[LOG] [${LOG._ts()}] [${tag}]`, msg, d ?? ''); },
+  warn:  (tag, msg, d) => { if (_isDev) console.warn(`[WARN][${LOG._ts()}] [${tag}]`, msg, d ?? ''); },
   error: (tag, msg, d) => console.error(`[ERR] [${LOG._ts()}] [${tag}]`, msg, d ?? ''),
 
-  /**
-   * Returns a "stop" function. Call it when the timed work finishes.
-   * Prints the label and elapsed ms automatically.
-   */
   time: (label) => {
+    if (!_isDev) return () => {};
     const t0 = Date.now();
-    LOG.info('TIMING', `${label} — started`);
+    console.log(`[LOG] [${LOG._ts()}] [TIMING]`, `${label} — started`);
     return (extra) =>
-      LOG.info('TIMING', `${label} — done in ${Date.now() - t0}ms`, extra ?? '');
+      console.log(`[LOG] [${LOG._ts()}] [TIMING]`, `${label} — done in ${Date.now() - t0}ms`, extra ?? '');
   },
 
-  /**
-   * Logs a named phase transition for the activity state machine.
-   * Makes it trivial to trace the full flow in the console.
-   */
-  phase: (from, to, data) =>
-    LOG.info('PHASE', `${from} → ${to}`, data ?? ''),
-
-  /**
-   * Logs a render / mount event. Lets you spot unexpected re-mounts.
-   */
-  render: (component, reason) =>
-    LOG.info('RENDER', `<${component}> ${reason ?? 'mounted/updated'}`),
+  phase: (from, to, data) => { if (_isDev) LOG.info('PHASE', `${from} → ${to}`, data ?? ''); },
+  render: (component, reason) => { if (_isDev) LOG.info('RENDER', `<${component}> ${reason ?? 'mounted/updated'}`); },
 };
 
 export default LOG;

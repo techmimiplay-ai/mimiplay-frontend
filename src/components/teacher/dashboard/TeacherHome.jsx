@@ -16,13 +16,17 @@ const TeacherHome = () => {
 
   useEffect(() => {
     fetchStats();
+    // Poll every 30s so Activities Today updates after a session
+    const iv = setInterval(fetchStats, 30000);
+    return () => clearInterval(iv);
   }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
       const res = await axios.get(
-        `${API_BASE_URL}/api/teacher/dashboard-stats?teacher_id=${teacherId}`
+        `${API_BASE_URL}/api/teacher/dashboard-stats?teacher_id=${teacherId}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
       );
       if (res.data?.status === 'success') {
         setStats(res.data);
@@ -34,7 +38,7 @@ const TeacherHome = () => {
     }
   };
 
-  const handleStartSession = () => navigate('/student');
+  const handleStartSession = () => navigate('/teacher/selection');
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">

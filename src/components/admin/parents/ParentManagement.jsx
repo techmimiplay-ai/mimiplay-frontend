@@ -5,7 +5,10 @@ import { motion } from 'framer-motion';
 import { API_BASE_URL } from '../../../config';
 import axios from 'axios';
 
+import { useToast } from '../../../context/ToastContext';
+
 const ParentManagement = () => {
+  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -68,15 +71,25 @@ const ParentManagement = () => {
   };
 
   const handleApprove = async (parent) => {
-    await axios.put(`${API_BASE_URL}/api/admin/approve/${parent.id}`);
-    setParents(prev => prev.map(p => p.id === parent.id ? { ...p, status: "active" } : p));
-    alert(`${parent.name} approved successfully`);
+    try {
+      await axios.put(`${API_BASE_URL}/api/admin/approve/${parent.id}`);
+      setParents(prev => prev.map(p => p.id === parent.id ? { ...p, status: 'active' } : p));
+      setShowApprovalModal(false);
+    } catch (err) {
+      console.error('Approve error:', err);
+      toast('Failed to approve. Please try again.', 'error');
+    }
   };
 
-  const handleReject = (parent) => {
-    if (window.confirm(`Are you sure you want to reject ${parent.name}?`)) {
-      setParents(parents.filter(p => p.id !== parent.id));
+  const handleReject = async (parent) => {
+    if (!window.confirm(`Are you sure you want to reject ${parent.name}?`)) return;
+    try {
+      await axios.delete(`${API_BASE_URL}/api/admin/reject/${parent.id}`);
+      setParents(prev => prev.filter(p => p.id !== parent.id));
       setShowApprovalModal(false);
+    } catch (err) {
+      console.error('Reject error:', err);
+      toast('Failed to reject. Please try again.', 'error');
     }
   };
 
@@ -86,12 +99,12 @@ const ParentManagement = () => {
         `${API_BASE_URL}/api/admin/edit-parent/${editForm.id}`,
         editForm
       );
-      alert(res.data.msg || "Parent updated successfully");
+      toast(res.data.msg || 'Parent updated successfully', 'success');
       setShowEditModal(false);
       setParents(prev => prev.map(p => p.id === editForm.id ? { ...p, ...editForm } : p));
     } catch (err) {
       console.error(err);
-      alert("Update failed");
+      toast('Update failed', 'error');
     }
   };
 

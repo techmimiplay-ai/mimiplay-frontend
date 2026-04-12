@@ -4,7 +4,10 @@ import { API_BASE_URL } from '../../../config';
 import { Card, Button } from '../../../components/shared';
 import { Save, Database, Cloud, Shield, Bell } from 'lucide-react';
 
+import { useToast } from '../../../context/ToastContext';
+
 const SystemSettings = () => {
+  const toast = useToast();
   const [settings, setSettings] = useState({
     autoApproval: false,
     emailNotifications: true,
@@ -40,13 +43,13 @@ const SystemSettings = () => {
       setSaving(true);
       const res = await axios.post(`${API_BASE_URL}/api/admin/settings`, settings);
       if (res.data?.status === 'success') {
-        alert('Settings saved successfully!');
+        toast('Settings saved successfully!', 'success');
       } else {
-        alert('Failed to save settings');
+        toast('Failed to save settings', 'error');
       }
     } catch (err) {
       console.error('Settings save error:', err);
-      alert('Failed to save settings');
+      toast('Failed to save settings', 'error');
     } finally {
       setSaving(false);
     }

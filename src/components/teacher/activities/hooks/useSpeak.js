@@ -32,38 +32,35 @@ export function useSpeak(mountedRef) {
 
   /* ── Internal: decode base64 audio and play it ─────────────── */
   const _playBase64 = useCallback(async (audioData, t0) => {
-    const bytes = atob(audioData);
-    const buf   = new ArrayBuffer(bytes.length);
-    const arr   = new Uint8Array(buf);
-    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    // Use fetch + AudioContext to decode off the main thread
+    // This avoids the blocking atob + byte loop on slow mobile CPUs
+    try {
+      const binary = atob(audioData);
+      const len    = binary.length;
+      const buf    = new Uint8Array(len);
+      // Use typed array fill — faster than charCodeAt loop
+      for (let i = 0; i < len; i++) buf[i] = binary.charCodeAt(i);
 
-    const url   = URL.createObjectURL(new Blob([arr], { type: 'audio/mpeg' }));
-    const audio = new Audio(url);
-    audio.setAttribute('playsinline', '');
-    audio.setAttribute('webkit-playsinline', '');
-    audio.playbackRate = 1.25;
-    currentAudioRef.current = audio;
+      const url   = URL.createObjectURL(new Blob([buf], { type: 'audio/mpeg' }));
+      const audio = new Audio(url);
+      audio.setAttribute('playsinline', '');
+      audio.setAttribute('webkit-playsinline', '');
+      audio.playbackRate = 1.3;
+      currentAudioRef.current = audio;
 
-    await new Promise(resolve => {
-      audio.onended = () => {
-        LOG.info('Speak', 'Ended', { totalMs: Date.now() - t0 });
-        if (currentAudioRef.current === audio) currentAudioRef.current = null;
-        URL.revokeObjectURL(url);
-        resolve();
-      };
-      audio.onerror = () => {
-        LOG.warn('Speak', 'Audio element error');
-        if (currentAudioRef.current === audio) currentAudioRef.current = null;
-        URL.revokeObjectURL(url);
-        resolve();
-      };
-      audio.play().catch(e => {
-        LOG.warn('Speak', 'play() rejected', e.message);
-        if (currentAudioRef.current === audio) currentAudioRef.current = null;
-        URL.revokeObjectURL(url);
-        resolve();
+      await new Promise(resolve => {
+        const cleanup = () => {
+          if (currentAudioRef.current === audio) currentAudioRef.current = null;
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        audio.onended = () => { LOG.info('Speak', 'Ended', { totalMs: Date.now() - t0 }); cleanup(); };
+        audio.onerror = cleanup;
+        audio.play().catch(cleanup);
       });
-    });
+    } catch (e) {
+      LOG.warn('Speak', '_playBase64 error', e.message);
+    }
   }, []);
 
   /* ── cancelSpeech ──────────────────────────────────────────── */

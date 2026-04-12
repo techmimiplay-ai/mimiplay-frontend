@@ -3,6 +3,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '../../../config';
 import { Card } from '../../../components/shared';
 import { Star, Lock } from 'lucide-react';
+import { motion } from 'framer-motion';
 const ALL_BADGES = [
   { id:1, icon:'🌟', name:'First Star',    description:'Earn your first star',   unlockAt:1,   rarity:'common'    },
   { id:2, icon:'📚', name:'Bookworm',      description:'Complete 3 activities',  unlockAt:5,   rarity:'common'    },
@@ -90,13 +91,7 @@ const AchievementsTab = ({ selectedChild }) => {
         { id:7, icon:'🏆', name:'Champion',      description:'Earn 100 stars',         unlockAt:100, rarity:'epic'      },
         { id:8, icon:'👑', name:'Legend',        description:'Earn 200 stars',         unlockAt:200, rarity:'legendary' },
       ]);
-      setLeaderboard([
-        { name: selectedChild?.name || 'You', stars: starsData.total_stars, isCurrentUser: true, rank: 1 },
-        { name: 'Priya Patel',                stars: 42,         isCurrentUser: false, rank: 2 },
-        { name: 'Rohan Kumar',                stars: 37,         isCurrentUser: false, rank: 3 },
-        { name: 'Sara Ali',                   stars: 35,         isCurrentUser: false, rank: 4 },
-        { name: 'Ananya Singh',               stars: 29,         isCurrentUser: false, rank: 5 },
-      ]);
+      setLeaderboard([]);
     }
   };
 
@@ -215,6 +210,12 @@ const AchievementsTab = ({ selectedChild }) => {
       {/* Leaderboard */}
       <Card>
         <h2 className="text-xl sm:text-2xl font-bold text-text mb-4">🏅 Class Leaderboard</h2>
+        {leaderboard.length === 0 ? (
+          <div className="text-center py-8 text-text/40">
+            <p className="text-3xl mb-2">🏅</p>
+            <p className="text-sm">Leaderboard not available</p>
+          </div>
+        ) : (
         <div className="space-y-3">
           {leaderboard.map((student, i) => (
             <motion.div key={student.name}
@@ -250,6 +251,7 @@ const AchievementsTab = ({ selectedChild }) => {
             </motion.div>
           ))}
         </div>
+        )}
       </Card>
 
       {/* Motivation */}

@@ -25,7 +25,7 @@ import { useCallback } from 'react';
 import LOG from '../logger';
 
 const SR_LANG    = 'en-IN';
-const SR_TIMEOUT = 7000; // ms to wait before treating as no-answer
+const SR_TIMEOUT = 5000; // ms — reduced from 7s to cut stall time on no-answer
 
 export function useSpeechRecognition() {
   const isSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);

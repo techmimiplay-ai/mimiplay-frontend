@@ -19,7 +19,29 @@
 
 
 // src/config.js
-export const API_BASE_URL = import.meta.env.VITE_API_URL;
+const _raw = import.meta.env.VITE_API_URL || '';
+
+// SSRF guard: only allow origins defined at build time via env vars.
+// No user-supplied URLs are ever used — all endpoints are built from this validated base.
+const _allowed = (import.meta.env.VITE_ALLOWED_ORIGINS || _raw)
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const _isAllowed = (url) => {
+  try {
+    const { origin, protocol } = new URL(url);
+    const isLocalDev = url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
+    if (protocol !== 'https:' && !isLocalDev) return false;
+    return _allowed.some(a => { try { return origin === new URL(a).origin; } catch { return false; } });
+  } catch { return false; }
+};
+
+if (_raw && !_isAllowed(_raw)) {
+  throw new Error(`[config] VITE_API_URL "${_raw}" is not in the allowed origins list.`);
+}
+
+export const API_BASE_URL = _raw;
 
 // ✅ Token helper
 export const getAuthHeaders = () => {

@@ -327,14 +327,16 @@ const SettingsTab = () => {
                   Connect your Smart TV to display Mimi and classroom activities
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs md:text-sm font-semibold text-green-700">Connected</span>
+                  <div className={`w-2.5 h-2.5 rounded-full ${document.fullscreenEnabled ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></div>
+                  <span className={`text-xs md:text-sm font-semibold ${document.fullscreenEnabled ? 'text-green-700' : 'text-yellow-700'}`}>
+                    {document.fullscreenEnabled ? 'Fullscreen Supported' : 'Fullscreen Not Available'}
+                  </span>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-3 md:p-4 bg-gray-50 rounded-2xl">
                   <p className="text-xs text-text/60 mb-1">Display Resolution</p>
-                  <p className="text-base md:text-lg font-semibold text-text">1920 × 1080 (Full HD)</p>
+                  <p className="text-base md:text-lg font-semibold text-text">Auto-detected</p>
                 </div>
                 <div className="p-3 md:p-4 bg-gray-50 rounded-2xl">
                   <p className="text-xs text-text/60 mb-1">Screen Mode</p>

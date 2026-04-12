@@ -111,6 +111,13 @@ const S = {
     gap:                 8,
   },
 
+  // Background options grid (4 columns for 8 items)
+  bgGrid: {
+    display:             'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    gap:                 6,
+  },
+
   // Option card
   optionCard: (active, available = true) => ({
     borderRadius: 12,
@@ -132,6 +139,14 @@ const S = {
     alignItems: 'center',
     justifyContent: 'center',
     fontSize:   24,
+  }),
+
+  // Thumbnail for bg cards (smaller, 4-col grid)
+  bgThumb: (style) => ({
+    height:             44,
+    backgroundImage:    style,
+    backgroundSize:     'cover',
+    backgroundPosition: 'center',
   }),
 
   // Card label
@@ -197,10 +212,8 @@ const BgCard = ({ bg, isActive, onClick }) => (
     whileHover={{ scale: 1.04 }}
     whileTap={{ scale: 0.97 }}
   >
-    <div style={S.thumb(bg.thumb)}>
-      <span>{bg.emoji}</span>
-    </div>
-    <div style={S.cardLabel(isActive)}>{bg.label}</div>
+    <div style={S.bgThumb(bg.style)} />
+    <div style={S.cardLabel(isActive)}>{bg.emoji} {bg.label}</div>
     {isActive && <div style={S.checkmark}>✓</div>}
   </motion.div>
 );
@@ -273,7 +286,7 @@ const MimiCustomizer = () => {
 
             {/* ── Background Section ── */}
             <div style={S.sectionLabel}>🌄 Background</div>
-            <div style={S.optionsGrid}>
+            <div style={S.bgGrid}>
               {Object.values(BACKGROUNDS).map((bg) => (
                 <BgCard
                   key={bg.key}

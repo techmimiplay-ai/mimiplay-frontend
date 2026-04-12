@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Modal, Button, Input, FileUpload } from '../../shared';
 import { Save, X } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { API_BASE_URL } from '../../../config';
 
 const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
     age: '',
     rollNo: '',
+    parentId: '',
     parentName: '',
     parentEmail: '',
     parentPhone: '',
     avatar: null,
   });
-
+  const [parents, setParents] = useState([]);
   const [errors, setErrors] = useState({});
+
+  // Fetch approved parents for dropdown
+  useEffect(() => {
+    if (!isOpen) return;
+    axios.get(`${API_BASE_URL}/api/teacher/all-parents`)
+      .then(res => { if (Array.isArray(res.data)) setParents(res.data); })
+      .catch(() => {});
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && student) {
@@ -22,6 +32,7 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
         name: student.name || '',
         age: student.age || '',
         rollNo: student.rollNo || '',
+        parentId: student.parentId || '',
         parentName: student.parentName || '',
         parentEmail: student.parentEmail || '',
         parentPhone: student.parentPhone || '',
@@ -30,6 +41,18 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
       setErrors({});
     }
   }, [isOpen, student]);
+
+  const handleParentChange = (e) => {
+    const id = e.target.value;
+    const p = parents.find(p => p._id === id);
+    setFormData(prev => ({
+      ...prev,
+      parentId: id,
+      parentName: p?.name || '',
+      parentEmail: p?.email || '',
+      parentPhone: p?.phone || '',
+    }));
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -137,6 +160,22 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
         <div className="border-t-2 border-gray-200 pt-4">
           <h4 className="font-semibold text-text text-sm mb-3">Parent Information</h4>
           <div className="space-y-3">
+            {/* Parent dropdown — auto-fills email & phone */}
+            {parents.length > 0 && (
+              <div>
+                <label className="block text-xs font-semibold text-text mb-2">Select Parent</label>
+                <select
+                  value={formData.parentId}
+                  onChange={handleParentChange}
+                  className="w-full px-3 py-2 rounded-lg border-2 border-gray-200 focus:border-primary-400 text-sm focus:outline-none"
+                >
+                  <option value="">— Select to auto-fill —</option>
+                  {parents.map(p => (
+                    <option key={p._id} value={p._id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-semibold text-text mb-2">Parent Name</label>
               <input

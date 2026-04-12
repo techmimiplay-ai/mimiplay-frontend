@@ -79,15 +79,22 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
         cameraStreamRef.current = stream;
 
         // ── Attach to live preview <video> ─────────────────────
-        if (liveVideoRef.current) {
-          liveVideoRef.current.srcObject = stream;
-          liveVideoRef.current.play().catch(e =>
-            LOG.warn('Camera', 'Preview play() rejected', e.message)
-          );
-          LOG.info('Camera', 'Live preview attached to <video>');
-        } else {
-          LOG.warn('Camera', 'liveVideoRef is null — preview will not show');
-        }
+        // The <video> element may not be in the DOM yet (rendered
+        // conditionally on phase === 'waiting'), so retry until it mounts.
+        const attachPreview = (attemptsLeft) => {
+          if (liveVideoRef.current) {
+            liveVideoRef.current.srcObject = stream;
+            liveVideoRef.current.play().catch(e =>
+              LOG.warn('Camera', 'Preview play() rejected', e.message)
+            );
+            LOG.info('Camera', 'Live preview attached to <video>');
+          } else if (attemptsLeft > 0) {
+            setTimeout(() => attachPreview(attemptsLeft - 1), 100);
+          } else {
+            LOG.warn('Camera', 'liveVideoRef never mounted — preview will not show');
+          }
+        };
+        attachPreview(20); // retry up to 2 seconds
 
         // ── Hidden video element for canvas capture ────────────
         const vidEl    = document.createElement('video');
@@ -103,10 +110,12 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
 
           const doneFrame = LOG.time('Face detect API round-trip');
           try {
-            canvasEl.width  = 320;
-            canvasEl.height = 240;
-            canvasEl.getContext('2d').drawImage(vidEl, 0, 0, 320, 240);
-            const base64 = canvasEl.toDataURL('image/jpeg', 0.7);
+            // 240x180 at quality 0.5 is sufficient for face detection
+            // and cuts toDataURL cost by ~60% vs 320x240 at 0.7
+            canvasEl.width  = 240;
+            canvasEl.height = 180;
+            canvasEl.getContext('2d').drawImage(vidEl, 0, 0, 240, 180);
+            const base64 = canvasEl.toDataURL('image/jpeg', 0.5);
 
             const res  = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 });
             doneFrame({ person: res.data?.person || 'none' });

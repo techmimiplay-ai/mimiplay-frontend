@@ -4,7 +4,10 @@ import { Search, Plus, CheckCircle, XCircle, Eye, Mail, Phone, Building2, User }
 import { motion } from 'framer-motion';
 import { API_BASE_URL, getAuthHeaders } from '../../../config';
 
+import { useToast } from '../../../context/ToastContext';
+
 const TeacherManagement = () => {
+  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -57,24 +60,45 @@ const TeacherManagement = () => {
   });
 
   const handleApprove = async (teacher) => {
-    await fetch(`${API_BASE_URL}/api/admin/approve/${teacher.id}`, {
-      method: "PUT",
-      headers: getAuthHeaders()
-    });
-    setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: "active" } : t));
-    alert(`${teacher.name} approved successfully`);
-  };
-
-  const handleReject = (teacher) => {
-    if (window.confirm(`Are you sure you want to reject ${teacher.name}?`)) {
-      setTeachers(teachers.filter(t => t.id !== teacher.id));
+    try {
+      await fetch(`${API_BASE_URL}/api/admin/approve/${teacher.id}`, {
+        method: "PUT",
+        headers: getAuthHeaders()
+      });
+      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'active' } : t));
       setShowApprovalModal(false);
+    } catch (err) {
+      console.error('Approve error:', err);
+      toast('Failed to approve. Please try again.', 'error');
     }
   };
 
-  const handleDeactivate = (teacher) => {
-    if (window.confirm(`Are you sure you want to deactivate ${teacher.name}?`)) {
-      setTeachers(teachers.map(t => t.id === teacher.id ? { ...t, status: 'inactive' } : t));
+  const handleReject = async (teacher) => {
+    if (!window.confirm(`Are you sure you want to reject ${teacher.name}?`)) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/admin/reject/${teacher.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders()
+      });
+      setTeachers(prev => prev.filter(t => t.id !== teacher.id));
+      setShowApprovalModal(false);
+    } catch (err) {
+      console.error('Reject error:', err);
+      toast('Failed to reject. Please try again.', 'error');
+    }
+  };
+
+  const handleDeactivate = async (teacher) => {
+    if (!window.confirm(`Are you sure you want to deactivate ${teacher.name}?`)) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/admin/deactivate/${teacher.id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders()
+      });
+      setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'inactive' } : t));
+    } catch (err) {
+      console.error('Deactivate error:', err);
+      toast('Failed to deactivate. Please try again.', 'error');
     }
   };
 
@@ -86,12 +110,22 @@ const TeacherManagement = () => {
         body: JSON.stringify(formData)
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.msg); return; }
-      alert("Teacher added successfully");
-      window.location.reload();
+      if (!res.ok) { toast(data.msg || 'Failed to add teacher', 'error'); return; }
+      const newTeacher = {
+        ...formData,
+        school: formData.school || 'N/A',
+        class: formData.class || 'N/A',
+        students: 0,
+        status: 'pending',
+        joinedDate: new Date().toLocaleDateString(),
+        lastActive: 'Just now',
+      };
+      setTeachers(prev => [newTeacher, ...prev]);
+      setFormData({ name: '', email: '', phone: '', school: '', class: '', password: '' });
+      setShowAddModal(false);
     } catch (err) {
       console.error(err);
-      alert("Error adding teacher");
+      toast('Error adding teacher', 'error');
     }
   };
 
@@ -103,13 +137,13 @@ const TeacherManagement = () => {
         body: JSON.stringify(editData)
       });
       const data = await res.json();
-      if (!res.ok) { alert(data.msg); return; }
-      alert("Teacher updated successfully");
+      if (!res.ok) { toast(data.msg || 'Failed to update teacher', 'error'); return; }
+      toast('Teacher updated successfully', 'success');
       setTeachers(prev => prev.map(t => t.id === editData.id ? editData : t));
       setShowEditModal(false);
     } catch (err) {
       console.error(err);
-      alert("Error updating teacher");
+      toast('Error updating teacher', 'error');
     }
   };
 

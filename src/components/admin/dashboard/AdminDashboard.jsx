@@ -12,20 +12,9 @@ const AdminDashboard = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [systemStats, setSystemStats] = useState([]);
-
-  // const recentActivity = [
-  //   { action: 'New teacher registered', user: 'Mr. Rahul Verma', time: '2 hours ago', type: 'info' },
-  //   { action: 'Parent approved', user: 'Mrs. Priya Shah', time: '3 hours ago', type: 'success' },
-  //   { action: 'Student added', user: 'Rohan Kumar (Roll: 045)', time: '5 hours ago', type: 'success' },
-  //   { action: 'New parent registered', user: 'Mr. Vikram Patel', time: '1 day ago', type: 'info' },
-  // ];
-
-  // const systemStats = [
-  //   { label: 'API Response Time', value: '45ms', status: 'good' },
-  //   { label: 'Database Load', value: '23%', status: 'good' },
-  //   { label: 'Storage Used', value: '2.4 GB', status: 'good' },
-  //   { label: 'Active Sessions', value: '12', status: 'good' },
-  // ];
+  const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     fetchDashboardData();
@@ -33,21 +22,65 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const statsRes = await axios.get(`${API_BASE_URL}/api/admin/dashboard-stats`);
+      const [statsRes, pendingRes] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/admin/dashboard-stats`),
+        axios.get(`${API_BASE_URL}/api/admin/pending-users`),
+      ]);
       setStats(statsRes.data);
-      const pendingRes = await axios.get(`${API_BASE_URL}/api/admin/pending-users`);
-      setPendingApprovals(pendingRes.data);
+      setPendingApprovals(Array.isArray(pendingRes.data) ? pendingRes.data : []);
     } catch (error) {
-      console.error("Dashboard fetch error:", error);
+      console.error('Dashboard fetch error:', error);
+    }
+  };
+
+  const handleApprove = async (item) => {
+    setApprovingId(item.id);
+    try {
+      await axios.put(`${API_BASE_URL}/api/admin/approve/${item.id}`);
+      setPendingApprovals(prev => prev.filter(p => p.id !== item.id));
+      setStats(prev => ({ ...prev, pendingApprovals: Math.max(0, (prev.pendingApprovals || 1) - 1) }));
+    } catch (err) {
+      console.error('Approve error:', err);
+      setErrorMsg('Failed to approve. Please try again.');
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleReject = async (item) => {
+    if (!window.confirm(`Reject ${item.name}?`)) return;
+    setRejectingId(item.id);
+    try {
+      await axios.delete(`${API_BASE_URL}/api/admin/reject/${item.id}`);
+      setPendingApprovals(prev => prev.filter(p => p.id !== item.id));
+      setStats(prev => ({ ...prev, pendingApprovals: Math.max(0, (prev.pendingApprovals || 1) - 1) }));
+    } catch (err) {
+      console.error('Reject error:', err);
+      setErrorMsg('Failed to reject. Please try again.');
+    } finally {
+      setRejectingId(null);
     }
   };
 
   return (
     <div className="space-y-6">
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm font-semibold flex items-center justify-between">
+          <span>❌ {errorMsg}</span>
+          <button onClick={() => setErrorMsg('')} className="text-red-400 hover:text-red-600 ml-3">✕</button>
+        </div>
+      )}
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Admin Dashboard</h1>
-        <p className="text-text/60">System overview and management</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Admin Dashboard</h1>
+          <p className="text-text/60">System overview and management</p>
+        </div>
+        <button onClick={fetchDashboardData}
+          className="text-sm text-primary-600 hover:underline font-semibold">
+          🔄 Refresh
+        </button>
       </div>
 
       {/* Stats Grid */}
@@ -123,11 +156,21 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <Button size="sm" variant="primary" className="flex-1 sm:flex-none">
-                    Approve
+                  <Button
+                    size="sm" variant="primary"
+                    className="flex-1 sm:flex-none"
+                    onClick={() => handleApprove(item)}
+                    disabled={approvingId === item.id || rejectingId === item.id}
+                  >
+                    {approvingId === item.id ? 'Approving…' : 'Approve'}
                   </Button>
-                  <Button size="sm" variant="outline" className="flex-1 sm:flex-none">
-                    Reject
+                  <Button
+                    size="sm" variant="outline"
+                    className="flex-1 sm:flex-none"
+                    onClick={() => handleReject(item)}
+                    disabled={approvingId === item.id || rejectingId === item.id}
+                  >
+                    {rejectingId === item.id ? 'Rejecting…' : 'Reject'}
                   </Button>
                 </div>
               </motion.div>
@@ -135,8 +178,8 @@ const AdminDashboard = () => {
           </div>
 
           <div className="mt-4">
-            <Button variant="outline" className="w-full">
-              View All Pending ({pendingApprovals.length})
+            <Button variant="outline" className="w-full" onClick={fetchDashboardData}>
+              Refresh Pending ({pendingApprovals.length})
             </Button>
           </div>
         </Card>
@@ -146,56 +189,57 @@ const AdminDashboard = () => {
         {/* Recent Activity */}
         <Card>
           <h2 className="text-xl sm:text-2xl font-bold text-text mb-4">Recent Activity</h2>
-          <div className="space-y-3">
-            {recentActivity.map((activity, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl"
-              >
-                <div className={`
-                  w-8 h-8 rounded-full flex items-center justify-center mt-1 shrink-0
-                  ${activity.type === 'success' ? 'bg-green-100' : 'bg-blue-100'}
-                `}>
-                  {activity.type === 'success' ? (
-                    <CheckCircle size={16} className="text-green-600" />
-                  ) : (
-                    <AlertCircle size={16} className="text-blue-600" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text">{activity.action}</p>
-                  <p className="text-sm text-text/60 truncate">{activity.user}</p>
-                  <p className="text-xs text-text/50 mt-1">{activity.time}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          {recentActivity.length === 0 ? (
+            <div className="text-center py-8 text-text/40">
+              <p className="text-3xl mb-2">📋</p>
+              <p className="text-sm">No recent activity to show</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.map((activity, index) => (
+                <motion.div key={index} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center mt-1 shrink-0
+                    ${activity.type === 'success' ? 'bg-green-100' : 'bg-blue-100'}`}>
+                    {activity.type === 'success'
+                      ? <CheckCircle size={16} className="text-green-600" />
+                      : <AlertCircle size={16} className="text-blue-600" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text">{activity.action}</p>
+                    <p className="text-sm text-text/60 truncate">{activity.user}</p>
+                    <p className="text-xs text-text/50 mt-1">{activity.time}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* System Status */}
         <Card>
           <h2 className="text-xl sm:text-2xl font-bold text-text mb-4">System Status</h2>
-          <div className="space-y-4">
-            {systemStats.map((stat, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <span className="text-sm font-semibold text-text">{stat.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-text">{stat.value}</span>
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                </div>
+          {systemStats.length === 0 ? (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+              <div className="flex items-center gap-2">
+                <CheckCircle size={20} className="text-green-600" />
+                <p className="text-sm font-semibold text-green-900">All systems operational</p>
               </div>
-            ))}
-          </div>
-
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
-            <div className="flex items-center gap-2">
-              <CheckCircle size={20} className="text-green-600" />
-              <p className="text-sm font-semibold text-green-900">All systems operational</p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              {systemStats.map((stat, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                  <span className="text-sm font-semibold text-text">{stat.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-text">{stat.value}</span>
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
     </div>

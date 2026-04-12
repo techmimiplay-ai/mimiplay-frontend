@@ -5,7 +5,6 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Login, Register, ForgotPassword } from '../pages';
 
 // Student/TV Interface
-import StudentInterface from '../pages/StudentInterface';
 import MimiChat from '../pages/MimiChat';
 
 // Teacher Pages
@@ -27,11 +26,15 @@ const ProtectedRoute = ({ element, allowedRoles }) => {
   const token = localStorage.getItem('token');
   const role  = localStorage.getItem('role');
 
-  if (!token) return <Navigate to="/login" replace />;                    // Login nahi = login pe bhejo
+  if (!token) return <Navigate to="/login" replace />;
 
-  // If allowedRoles is provided, enforce role check too.
   if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    return <Navigate to="/login" replace />; // Wrong role = login pe bhejo
+    // Redirect to the user's own portal instead of login
+    const home = role === 'teacher' ? '/teacher/home'
+               : role === 'parent'  ? '/parent/home'
+               : role === 'admin'   ? '/admin/dashboard'
+               : '/login';
+    return <Navigate to={home} replace />;
   }
 
   return element;
@@ -49,7 +52,6 @@ const AppRoutes = () => {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       
       {/* Student/TV Interface (Mimi) */}
-      <Route path="/student" element={<ProtectedRoute element={<StudentInterface />} />} />
       <Route path="/mimi-chat" element={<ProtectedRoute element={<MimiChat />} />} />
       
       {/* Teacher Dashboard */}

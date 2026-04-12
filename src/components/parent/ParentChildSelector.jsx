@@ -159,67 +159,23 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, User, Loader2 } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-// import { API_BASE_URL } from '../../config';
-import { API_BASE_URL, getAuthHeaders } from '../../config';
 
-const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
+const ParentChildSelector = ({ childrenList = [], selectedChild, onSelectChild }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [children, setChildren] = useState([]); // Dynamic state
-  const [loading, setLoading] = useState(true);
   const [position, setPosition] = useState({ top: 0, right: 0 });
   const buttonRef = useRef(null);
 
-  // Mock data - would come from API in real app
-  // const children = [
-  //   { id: 1, name: 'Aarav Sharma', age: 5, avatar: 'AS' },
-  //   { id: 2, name: 'Anaya Sharma', age: 7, avatar: 'ANS' },
-  // ];
+  const children = childrenList.map(child => ({
+    ...child,
+    id: child.id || child._id,
+    avatar: child.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?',
+  }));
 
-  useEffect(() => {
-    const fetchChildren = async () => {
-      const parentId = localStorage.getItem('userId');
-      if (!parentId) return;
-
-      try {
-        // Aapko ye API backend mein banani hogi (main niche code de raha hoon)
-        // const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`);
-        const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`, {
-          headers: getAuthHeaders()
-        });
-        const data = await res.json();
-
-        if (res.ok) {
-          // Naam ke initials nikalne ke liye function
-          const formattedData = data.map(child => ({
-            id: child.id || child._id,  // ✅ dono handle karo
-            name: child.name,
-            class: child.class,
-            roll_number: child.roll_number,
-            avatar: child.name.split(' ').map(n => n[0]).join('').toUpperCase()
-          }));
-
-          setChildren(formattedData);
-
-          // Agar koi child selected nahi hai, toh pehle wale ko select kar lo
-          if (!selectedChild && formattedData.length > 0) {
-            // onSelectChild(formattedData[0].id);
-            onSelectChild(formattedData[0]);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching children:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchChildren();
-  }, []);
-
-  // const selected = children.find(c => c.id === selectedChild) || children[0];
-  const selected = selectedChild || children[0];
+  const selected = selectedChild
+    ? { ...selectedChild, avatar: selectedChild.name?.split(' ').map(n => n[0]).join('').toUpperCase() || '?' }
+    : children[0];
 
   // Update dropdown position when button position changes
   useEffect(() => {
@@ -246,7 +202,6 @@ const ParentChildSelector = ({ selectedChild, onSelectChild }) => {
     }
   }, [isOpen]);
 
-  if (loading) return <div className="flex items-center gap-2 text-white/70 text-sm"><Loader2 className="animate-spin" size={16} /> Loading...</div>;
   if (!selected) return null;
 
   const dropdownContent = (

@@ -346,6 +346,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Input, Modal, Avatar } from '../../../components/shared';
 import { Search, Eye, Mail, Phone, User, CheckCircle, Plus, Pencil, Upload, Camera, X, Loader } from 'lucide-react';
 import { API_BASE_URL, getAuthHeaders, API_ENDPOINTS } from '../../../config';
+import { useToast } from '../../../context/ToastContext';
 
 const StudentManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -368,6 +369,7 @@ const StudentManagement = () => {
     const [editPhotoPreview, setEditPhotoPreview] = useState(null);
     const [isEditSubmitting, setIsEditSubmitting] = useState(false);
     const editFileInputRef = useRef(null);
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         studentName: '',
@@ -435,13 +437,13 @@ const StudentManagement = () => {
 
         // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file (JPG, PNG, etc.)');
+            toast('Please select an image file (JPG, PNG, etc.)', 'error');
             return;
         }
 
         // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image size should be less than 5MB');
+            toast('Image size should be less than 5MB', 'error');
             return;
         }
 
@@ -464,11 +466,11 @@ const StudentManagement = () => {
         const file = e.target.files[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file (JPG, PNG, etc.)');
+            toast('Please select an image file (JPG, PNG, etc.)', 'error');
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
-            alert('Image size should be less than 5MB');
+            toast('Image size should be less than 5MB', 'error');
             return;
         }
         setEditPhotoFile(file);
@@ -495,7 +497,7 @@ const StudentManagement = () => {
     // ─── Main Add Student handler ─────────────────────────────────────────────
     const handleAddStudent = async () => {
         if (!formData.studentName.trim()) {
-            alert('Student name is required');
+            toast('Student name is required', 'warning');
             return;
         }
 
@@ -547,7 +549,7 @@ const StudentManagement = () => {
                     setSubmitStatus('done');
                     await fetchStudents();
                     resetAddForm();
-                    alert(`✅ Student added successfully!\n\n⚠️ Face registration failed: ${faceResult.message}\n\nYou can re-register the face later.`);
+                    toast(`Student added! Face registration failed: ${faceResult.message}. You can re-register later.`, 'warning');
                     return;
                 }
             }
@@ -557,15 +559,15 @@ const StudentManagement = () => {
             resetAddForm();
 
             if (photoFile) {
-                alert("✅ Student added and face registered successfully!");
+                toast('Student added and face registered successfully!', 'success');
             } else {
-                alert("✅ Student added successfully!\n\nNote: No photo added — face recognition won't work for this student.");
+                toast('Student added. No photo — face recognition will not work for this student.', 'warning');
             }
 
         } catch (err) {
             console.error(err);
             setSubmitStatus('error');
-            alert(`❌ Could not add student: ${err.message}`);
+            toast(`Could not add student: ${err.message}`, 'error');
         } finally {
             setIsSubmitting(false);
             setSubmitStatus('');
@@ -630,7 +632,7 @@ const StudentManagement = () => {
             });
 
             if (!res.ok) {
-                alert("Update failed ❌");
+                toast('Update failed', 'error');
                 return;
             }
 
@@ -647,12 +649,12 @@ const StudentManagement = () => {
                 });
                 const faceResult = await faceResponse.json();
                 if (faceResult.status === 'error') {
-                    alert(`✅ Student updated!\n\n⚠️ Face registration failed: ${faceResult.message}`);
+                    toast(`Student updated! Face registration failed: ${faceResult.message}`, 'warning');
                 } else {
-                    alert("✅ Student updated and face registered successfully!");
+                    toast('Student updated and face registered successfully!', 'success');
                 }
             } else {
-                alert("✅ Student updated successfully!");
+                toast('Student updated successfully!', 'success');
             }
 
             fetchStudents();
@@ -662,7 +664,7 @@ const StudentManagement = () => {
 
         } catch (err) {
             console.error(err);
-            alert("Server error");
+            toast('Server error. Please try again.', 'error');
         } finally {
             setIsEditSubmitting(false);
         }

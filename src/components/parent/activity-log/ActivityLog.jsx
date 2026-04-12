@@ -325,7 +325,6 @@ const getScoreColor = (score) => {
   return 'text-red-600';
 };
 
-// Date label banao
 function getDateLabel(dateStr) {
   const today     = new Date().toISOString().split('T')[0];
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -336,15 +335,13 @@ function getDateLabel(dateStr) {
 
 const ActivityLog = ({ selectedChild }) => {
 
-  // ── State ───────────────────────────────────────────────────
-  const [allResults,    setAllResults]    = useState([]);
-  const [loading,       setLoading]       = useState(false);
-  const [selectedDate,  setSelectedDate]  = useState('all');
-  const [filterType,    setFilterType]    = useState('all');
-  const [appliedDate,   setAppliedDate]   = useState('all');
-  const [appliedType,   setAppliedType]   = useState('all');
+  const [allResults,   setAllResults]  = useState([]);
+  const [loading,      setLoading]     = useState(false);
+  const [selectedDate, setSelectedDate] = useState('all');
+  const [filterType,   setFilterType]  = useState('all');
+  const [appliedDate,  setAppliedDate] = useState('all');
+  const [appliedType,  setAppliedType] = useState('all');
 
-  // ── Fetch jab bhi selectedChild badle ──────────────────────
   useEffect(() => {
     if (!selectedChild?.id) return;
     fetchActivityLog(selectedChild.id);
@@ -353,12 +350,8 @@ const ActivityLog = ({ selectedChild }) => {
   const fetchActivityLog = async (studentId) => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${API_BASE_URL}/api/parent/child-stars?student_id=${studentId}`
-      );
-      if (res.data?.status === 'success') {
-        setAllResults(res.data.results || []);
-      }
+      const res = await axios.get(`${API_BASE_URL}/api/parent/child-stars?student_id=${studentId}`);
+      if (res.data?.status === 'success') setAllResults(res.data.results || []);
     } catch (err) {
       console.error('Activity log fetch error:', err);
     } finally {
@@ -366,26 +359,20 @@ const ActivityLog = ({ selectedChild }) => {
     }
   };
 
-  // ── Filter Logic ────────────────────────────────────────────
-  const today     = new Date().toISOString().split('T')[0];
-  const weekStart = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-    .toISOString().split('T')[0];
+  const today      = new Date().toISOString().split('T')[0];
+  const weekStart  = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
 
   const filteredResults = allResults.filter(r => {
-    // Date filter
-    if (appliedDate === 'today'  && r.date !== today)          return false;
-    if (appliedDate === 'week'   && r.date < weekStart)        return false;
-    if (appliedDate === 'month'  && r.date < monthStart)       return false;
-    // Type filter
+    if (appliedDate === 'today' && r.date !== today)       return false;
+    if (appliedDate === 'week'  && r.date < weekStart)     return false;
+    if (appliedDate === 'month' && r.date < monthStart)    return false;
     if (appliedType !== 'all') {
-      const name = (r.activityName || '').toLowerCase();
-      if (!name.includes(appliedType)) return false;
+      if (!(r.activityName || '').toLowerCase().includes(appliedType)) return false;
     }
     return true;
   });
 
-  // Results ko date ke hisaab se group karo
   const grouped = filteredResults.reduce((acc, r) => {
     const date = r.date || today;
     if (!acc[date]) acc[date] = [];
@@ -394,17 +381,36 @@ const ActivityLog = ({ selectedChild }) => {
   }, {});
 
   const groupedDays = Object.keys(grouped)
-    .sort((a, b) => b.localeCompare(a)) // Latest pehle
+    .sort((a, b) => b.localeCompare(a))
     .map(date => ({ date, dateLabel: getDateLabel(date), activities: grouped[date] }));
 
-  // ── Stats ───────────────────────────────────────────────────
   const totalActivities = filteredResults.length;
   const totalStars      = filteredResults.reduce((s, r) => s + (r.stars || 0), 0);
   const avgScore        = totalActivities > 0
-    ? (filteredResults.reduce((s, r) => s + (r.stars || 0), 0) / totalActivities).toFixed(1)
+    ? (totalStars / totalActivities).toFixed(1)
     : '—';
 
-  // ── No child selected ───────────────────────────────────────
+  const downloadLog = () => {
+    if (filteredResults.length === 0) { alert('No activities to download.'); return; }
+    const csv = [
+      ['Date', 'Activity', 'Stars', 'Score (%)', 'Time'],
+      ...filteredResults.map(r => [
+        r.date || '',
+        `"${r.activityName || 'Activity'}"`,
+        r.stars || 0,
+        r.score || 0,
+        r.timestamp ? new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
+      ])
+    ].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedChild.name}-activity-log-${today}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   if (!selectedChild) return (
     <div className="flex items-center justify-center py-20">
       <div className="text-center">
@@ -415,7 +421,6 @@ const ActivityLog = ({ selectedChild }) => {
     </div>
   );
 
-  // ── Loading ─────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <div className="text-center">
@@ -436,9 +441,15 @@ const ActivityLog = ({ selectedChild }) => {
           </h1>
           <p className="text-text/60">Complete history of learning activities</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={() => alert('Coming soon!')} className="w-full sm:w-full md:w-auto lg:w-auto">
-          Download Log
-        </Button>
+        <div className="flex gap-2 w-full sm:w-full md:w-auto lg:w-auto">
+          <button onClick={() => fetchActivityLog(selectedChild.id)}
+            className="text-sm text-primary-600 hover:underline font-semibold">
+            🔄 Refresh
+          </button>
+          <Button variant="outline" icon={Download} onClick={downloadLog} className="flex-1 md:flex-none">
+            Download Log
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
