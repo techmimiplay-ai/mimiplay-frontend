@@ -36,7 +36,8 @@ const TeacherHome = () => {
     const run = () => { if (!cancelled) fetchStats(); };
     run();
     const iv = setInterval(run, 30000);
-    return () => { cancelled = true; clearInterval(iv); };
+    window.addEventListener('activity-result-saved', run);
+    return () => { cancelled = true; clearInterval(iv); window.removeEventListener('activity-result-saved', run); };
   }, []);
 
   const handleStartSession = () => navigate('/teacher/selection');

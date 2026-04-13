@@ -268,7 +268,6 @@ const SettingsTab = () => {
     notifications:  true,
     weeklyReports:  true,
     progressAlerts: true,
-    theme:          'light',
     language:       'english',
   });
 
@@ -278,6 +277,7 @@ const SettingsTab = () => {
   const [showPwModal, setShowPwModal] = useState(false);
   const [pwData,      setPwData]      = useState({ current: '', next: '', confirm: '' });
   const [pwError,     setPwError]     = useState('');
+  const [pwSaving,    setPwSaving]    = useState(false);
 
   const parentId = localStorage.getItem('userId') || localStorage.getItem('user_id');
 
@@ -462,25 +462,14 @@ const SettingsTab = () => {
           <Palette size={24} className="text-primary-600" />
           Display Settings
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-semibold text-text mb-2">Theme</label>
-            <select name="theme" value={formData.theme} onChange={handleChange}
-              className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400">
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="auto">Auto</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-text mb-2">Language</label>
-            <select name="language" value={formData.language} onChange={handleChange}
-              className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400">
-              <option value="english">English</option>
-              <option value="hindi">Hindi</option>
-              <option value="spanish">Spanish</option>
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-semibold text-text mb-2">Language</label>
+          <select name="language" value={formData.language} onChange={handleChange}
+            className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-primary-400">
+            <option value="english">English</option>
+            <option value="hindi">Hindi</option>
+            <option value="spanish">Spanish</option>
+          </select>
         </div>
       </Card>
 
@@ -523,22 +512,26 @@ const SettingsTab = () => {
             value={pwData.confirm}
             onChange={e => setPwData(p => ({ ...p, confirm: e.target.value }))} />
           <div className="flex gap-3">
-            <Button variant="primary" className="flex-1" onClick={async () => {
+            <Button variant="primary" className="flex-1" disabled={pwSaving} onClick={async () => {
               setPwError('');
-              if (!pwData.current || !pwData.next) { setPwError('All fields are required.'); return; }
+              if (!pwData.current || !pwData.next || !pwData.confirm) { setPwError('All fields are required.'); return; }
               if (pwData.next !== pwData.confirm) { setPwError('Passwords do not match.'); return; }
               if (pwData.next.length < 6) { setPwError('Password must be at least 6 characters.'); return; }
+              setPwSaving(true);
               try {
-                await axios.post(`${API_BASE_URL}/api/parent/change-password`, {
-                  parent_id: parentId, current_password: pwData.current, new_password: pwData.next,
-                });
+                const token = localStorage.getItem('token');
+                await axios.put(`${API_BASE_URL}/api/parent/change-password?parent_id=${parentId}`, {
+                  currentPassword: pwData.current, newPassword: pwData.next,
+                }, { headers: { Authorization: `Bearer ${token}` } });
                 setShowPwModal(false);
                 setSaveStatus('✅ Password changed successfully!');
                 setTimeout(() => setSaveStatus(''), 3000);
               } catch (err) {
                 setPwError(err.response?.data?.message || 'Failed. Check your current password.');
+              } finally {
+                setPwSaving(false);
               }
-            }}>Save</Button>
+            }}>{pwSaving ? 'Saving…' : 'Save'}</Button>
             <Button variant="outline" className="flex-1" onClick={() => setShowPwModal(false)}>Cancel</Button>
           </div>
         </div>

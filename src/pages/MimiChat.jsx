@@ -264,17 +264,17 @@ const MimiChat = () => {
     return () => clearInterval(t)
   }, [mimiText])
 
-  // ── Answer timer — only starts after speaking AND typing both finish
+  // ── Answer timer — clears response panel after Alexi finishes speaking+typing
   useEffect(() => {
     if (!mimiText || isSpeaking || isTyping) { setAnswerTimer(0); return }
     if (aiPhase !== 'responding' && aiPhase !== 'listening') { setAnswerTimer(0); return }
-    setAnswerTimer(12)
+    setAnswerTimer(8)
     const iv = setInterval(() => {
       setAnswerTimer(prev => {
         if (prev <= 1) {
           clearInterval(iv)
-          setMimiText(''); setDisplayedText(''); setImageUrl(null); setYtVideo(null)
-          setAiPhaseSync('listening')
+          setMimiText(''); setDisplayedText(''); setImageUrl(null)
+          if (!ytPlaying) setYtVideo(null)
           return 0
         }
         return prev - 1
@@ -335,8 +335,26 @@ const MimiChat = () => {
     setAiPhaseSync('generating')
     setMimiText(''); setDisplayedText(''); setChatHistory([])
     setYtVideo(null); setImageUrl(null)
+
+    // Resolve student MongoDB _id if not provided by PROCESS_FRAME
+    let resolvedId = studentObjId
+    if (!resolvedId) {
+      try {
+        const idRes = await axios.post(API_ENDPOINTS.GET_STUDENT_ID, { name })
+        if (idRes.data?.status === 'found') resolvedId = idRes.data.student_id
+      } catch (e) { log('SESSION', 'ID lookup failed', e.message) }
+    }
+    if (!resolvedId) {
+      log('SESSION', 'No student_id — cannot start session')
+      showError('Student not found. Please register first 😊')
+      greetingActiveRef.current = false; setAiPhaseSync('listening')
+      setSessionState('idle')
+      return
+    }
+    setStudentId(resolvedId); studentIdRef.current = resolvedId
+
     try {
-      const res           = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: studentObjId, session_id: sid })
+      const res           = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: resolvedId, session_id: sid })
       const greetingText  = res.data.greeting_text
       const greetingAudio = res.data.greeting_audio
       log('SESSION', 'Greeting received', { greetingText })
@@ -351,6 +369,7 @@ const MimiChat = () => {
       log('SESSION', 'START_MIMI_SESSION failed', e.message)
       showError('Oops! Please try again 😊')
       greetingActiveRef.current = false; setAiPhaseSync('listening')
+      setSessionState('idle')
     }
   }, [playBase64Audio, clearResponse, showError])
 
@@ -410,7 +429,7 @@ const MimiChat = () => {
       if (!transcribed.trim())                  { setAiPhaseSync('listening'); return }
       clearResponse()
       // Answer is in res.data.data.text (confirmed from logs)
-      const responseText  = res.data.data?.text || res.data.data?.answer || res.data.answer || ''
+      const responseText  = res.data.data?.text || res.data.data?.answer || res.data.text || res.data.answer || res.data.response || ''
       const responseAudio = res.data.data?.audio || res.data.audio || null
       log('AUDIO_SEND', `answer — data.text="${(res.data.data?.text||'').slice(0,60)}"`)
       log('AUDIO_SEND', `✓ using: "${responseText.slice(0,80)}" | audio=${!!responseAudio}`)
@@ -507,6 +526,9 @@ const MimiChat = () => {
     chatHistoryRef.current = []; greetingActiveRef.current = false
     isSpeakingRef.current = false; consecutiveFailsRef.current = 0
     setIsSpeaking(false)
+    // Only clear selectedChild for Parent Portal — Teacher Portal doesn't set it
+    const role = localStorage.getItem('role')
+    if (role !== 'teacher' && role !== 'admin') localStorage.removeItem('selectedChild')
   }
 
   const embedUrl      = getYtEmbedUrl(ytVideo)

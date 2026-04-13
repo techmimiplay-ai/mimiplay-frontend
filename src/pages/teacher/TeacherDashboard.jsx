@@ -75,7 +75,7 @@ const TeacherDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
 
       {/* --- Top Bar --- */}
       <header className="bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-4 md:px-8 py-3 md:py-4 sticky top-0 z-50">

@@ -82,7 +82,7 @@ const ParentPortal = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
 
       {/* Top Bar — matches Teacher/Admin style */}
       <header className="bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-4 md:px-8 py-3 md:py-4 sticky top-0 z-50">
@@ -99,6 +99,10 @@ const ParentPortal = () => {
               selectedChild={selectedChild}
               onSelectChild={handleSelectChild}
             />
+            <div className="hidden lg:block text-right border-r-2 border-gray-100 pr-4 mr-2">
+              <p className="text-xs text-text/60">Viewing</p>
+              <p className="font-bold text-text text-sm">{selectedChild?.name || 'No child'}</p>
+            </div>
             <button
               onClick={handleLogout}
               className="p-2 md:p-3 bg-red-100 hover:bg-red-500 hover:text-white text-red-600 rounded-xl md:rounded-2xl transition-all duration-300 group shadow-sm"

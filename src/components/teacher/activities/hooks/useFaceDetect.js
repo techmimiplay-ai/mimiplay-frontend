@@ -78,9 +78,11 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
 
         cameraStreamRef.current = stream;
 
-        // ── Attach to live preview <video> ─────────────────────
+        // ── Attach stream to live preview <video> ─────────────
         // The <video> element may not be in the DOM yet (rendered
         // conditionally on phase === 'waiting'), so retry until it mounts.
+        const canvasEl = document.createElement('canvas');
+
         const attachPreview = (attemptsLeft) => {
           if (liveVideoRef.current) {
             liveVideoRef.current.srcObject = stream;
@@ -96,17 +98,14 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
         };
         attachPreview(20); // retry up to 2 seconds
 
-        // ── Hidden video element for canvas capture ────────────
-        const vidEl    = document.createElement('video');
-        const canvasEl = document.createElement('canvas');
-        vidEl.srcObject = stream;
-        vidEl.play();
-
         LOG.info('Camera', 'Face-detect poll starting (interval 1200ms)');
 
         pollRef.current = setInterval(async () => {
           // Guard: skip if phase changed or already recognized
           if (phaseRef.current !== 'waiting' || recognizedRef.current) return;
+
+          const videoEl = liveVideoRef.current;
+          if (!videoEl || videoEl.readyState < 2) return;
 
           const doneFrame = LOG.time('Face detect API round-trip');
           try {
@@ -114,7 +113,7 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
             // and cuts toDataURL cost by ~60% vs 320x240 at 0.7
             canvasEl.width  = 240;
             canvasEl.height = 180;
-            canvasEl.getContext('2d').drawImage(vidEl, 0, 0, 240, 180);
+            canvasEl.getContext('2d').drawImage(videoEl, 0, 0, 240, 180);
             const base64 = canvasEl.toDataURL('image/jpeg', 0.5);
 
             const res  = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 });

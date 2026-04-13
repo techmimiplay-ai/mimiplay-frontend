@@ -63,7 +63,7 @@ export function StarProvider({ children }) {
     const entry = {
       id:           Date.now(),
       studentId:    studentId    ?? null,
-      studentName:  studentName  ?? 'Aarav Sharma',
+      studentName:  studentName  ?? '',
       activityId:   activityId   ?? 0,
       activityName: activityName ?? 'Activity',
       stars:        Math.min(5, Math.max(0, stars ?? 0)),
@@ -80,26 +80,34 @@ export function StarProvider({ children }) {
 
   /** All results for one student (newest first) */
   const getStudentResults = useCallback((studentId) =>
-    results.filter(r => r.studentId === studentId),
+    results.filter(r => r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase()),
   [results]);
 
   /** Total stars ever earned by a student */
   const getTotalStars = useCallback((studentId) =>
-    results.filter(r => r.studentId === studentId).reduce((s, r) => s + r.stars, 0),
+    results
+      .filter(r => r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase())
+      .reduce((s, r) => s + r.stars, 0),
   [results]);
 
   /** Stars earned today by a student */
   const getTodayStars = useCallback((studentId) => {
     const today = new Date().toDateString();
     return results
-      .filter(r => r.studentId === studentId && r.date === today)
+      .filter(r =>
+        (r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase())
+        && r.date === today
+      )
       .reduce((s, r) => s + r.stars, 0);
   }, [results]);
 
   /** Number of activities completed today */
   const getTodayActivities = useCallback((studentId) => {
     const today = new Date().toDateString();
-    return results.filter(r => r.studentId === studentId && r.date === today).length;
+    return results.filter(r =>
+      (r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase())
+      && r.date === today
+    ).length;
   }, [results]);
 
   /** Clear everything (for testing) */

@@ -9,11 +9,12 @@ const AttendanceTab = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceData, setAttendanceData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(null); // student name jo save ho raha hai
+  const [saving, setSaving] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [reviewText, setReviewText] = useState('');
   const [saveMsg, setSaveMsg] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
   const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
   const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
@@ -43,7 +44,7 @@ const AttendanceTab = () => {
 
   useEffect(() => {
     fetchAttendance(selectedDate);
-  }, [selectedDate, fetchAttendance]);
+  }, [selectedDate, refreshKey, fetchAttendance]);
 
   // ── Stats ───────────────────────────────────────────────────
   const stats = {
@@ -174,7 +175,7 @@ const AttendanceTab = () => {
             Export CSV
           </Button>
           <Button variant="outline" icon={RefreshCw}
-            onClick={() => fetchAttendance(selectedDate)} className="w-full sm:w-auto">
+            onClick={() => setRefreshKey(k => k + 1)} className="w-full sm:w-auto">
             Refresh
           </Button>
           <Button variant="primary" onClick={markAllPresent} className="w-full sm:w-auto">

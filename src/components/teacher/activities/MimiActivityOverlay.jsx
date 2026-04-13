@@ -51,6 +51,46 @@ import {
 } from './data/activityWords';
 import WORD_EMOJIS from './data/wordEmojis';
 
+/* ── StarRating ───────────────────────────────────────────────── */
+function StarRating({ rating, maxStars = 5, size = 'md', animated = false }) {
+  const sizes = { sm: 'text-xl', md: 'text-3xl', lg: 'text-4xl' };
+  return (
+    <div className={`flex gap-1 ${sizes[size] || sizes.md}`}>
+      {Array.from({ length: maxStars }, (_, i) => (
+        <motion.span key={i}
+          animate={animated && i < rating ? { scale: [1, 1.4, 1], rotate: [0, 15, -15, 0] } : {}}
+          transition={{ delay: i * 0.12, duration: 0.5 }}
+        >
+          {i < rating ? '⭐' : '☆'}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
+/* ── ConfettiAnimation ─────────────────────────────────────────── */
+function ConfettiAnimation({ duration = 3500, density = 60 }) {
+  const pieces = Array.from({ length: density }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    color: ['#FCD34D','#F472B6','#34D399','#60A5FA','#A78BFA','#FB923C'][i % 6],
+    delay: Math.random() * 1.5,
+    size: 6 + Math.random() * 8,
+  }));
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {pieces.map(p => (
+        <motion.div key={p.id}
+          className="absolute rounded-sm"
+          style={{ left: `${p.x}%`, top: '-10px', width: p.size, height: p.size, background: p.color }}
+          animate={{ y: ['0vh', '110vh'], rotate: [0, 360 * (Math.random() > 0.5 ? 1 : -1)], opacity: [1, 1, 0] }}
+          transition={{ duration: 2 + Math.random(), delay: p.delay, ease: 'easeIn' }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ── Constants ────────────────────────────────────────────────── */
 const DIFFICULTY_LABELS = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const DIFFICULTY_COLORS = {

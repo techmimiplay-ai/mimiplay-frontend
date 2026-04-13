@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Card, PageLoader } from '../../../components/shared';
-import { Download, TrendingUp, TrendingDown, BarChart3, Mail } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { API_BASE_URL } from '../../../config';
 import axios from 'axios';
@@ -85,7 +85,7 @@ const ReportsTab = () => {
     a.click();
     window.URL.revokeObjectURL(url);
   };
-  const emailParents  = () => showToast('Email to parents coming soon!');
+
 
   if (loading) return <PageLoader variant="inline" emoji="📊" text="Loading reports…" />;
 
@@ -104,9 +104,6 @@ const ReportsTab = () => {
           <p className="text-text/60">Track class performance and progress</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <Button variant="outline" icon={Mail} onClick={emailParents} className="w-full sm:w-auto">
-            Email Parents
-          </Button>
           <Button variant="primary" icon={Download} onClick={downloadReport} className="w-full sm:w-auto">
             Download Report
           </Button>

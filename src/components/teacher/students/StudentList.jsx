@@ -45,7 +45,7 @@ const StudentList = () => {
       });
  
       const formatted = res.data.map((s, index) => ({
-        id: index + 1,
+        id: s._id,
         studentId: s._id,
         mongoId: s._id,
         name: s.name || '',
@@ -242,10 +242,31 @@ const StudentList = () => {
       }
     });
   };
-  const handleSaveStudent = (updatedData) => {
-    setStudents(students.map(s => s.id === selectedStudent.id ? { ...s, ...updatedData } : s));
-    setShowEditModal(false);
-    setSelectedStudent(null);
+  const handleSaveStudent = async (updatedData) => {
+    try {
+      await axios.put(
+        `${API_BASE_URL}/api/admin/edit-student/${selectedStudent.studentId}`,
+        {
+          name:        updatedData.name,
+          rollNumber:  updatedData.rollNo,
+          parentName:  updatedData.parentName,
+          email:       updatedData.parentEmail,
+          phone:       updatedData.parentPhone,
+          parent_id:   updatedData.parentId || undefined,
+        },
+        { headers: getAuthHeaders() }
+      );
+      setStudents(prev => prev.map(s =>
+        s.id === selectedStudent.id ? { ...s, ...updatedData } : s
+      ));
+      toast('Student updated successfully.', 'success');
+    } catch (err) {
+      console.error('Edit student error:', err);
+      toast(`Could not update student: ${err.response?.data?.msg || err.message}`, 'error');
+    } finally {
+      setShowEditModal(false);
+      setSelectedStudent(null);
+    }
   };
   const submitReview = async () => {
     if (!reviewText.trim()) return;
@@ -264,10 +285,7 @@ const StudentList = () => {
     }
   };
  
-  const firstStudent = students[0];
-  const aaravStars = firstStudent ? getTotalStars(firstStudent.studentId) : 0;
-  const aaravTodayStars = firstStudent ? getTodayStars(firstStudent.studentId) : 0;
- 
+
   return (
     <div className="space-y-6">
       {loading && <PageLoader variant="inline" emoji="👦" text="Loading students…" />}
@@ -369,7 +387,7 @@ const StudentList = () => {
                 const liveStars = getTotalStars(student.studentId);
                 const todayStars = getTodayStars(student.studentId);
                 return (
-                  <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                  <tr key={student.studentId} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
                         <Avatar size="md" />
@@ -570,7 +588,7 @@ const StudentList = () => {
  
       {/* ── View Student Modal ─────────────────────────────────────────────────── */}
       {selectedStudent && (
-        <Modal isOpen={showViewModal} onClose={() => setShowViewModal(false)} title="Student Details" size="lg">
+        <Modal key={selectedStudent.studentId} isOpen={showViewModal} onClose={() => setShowViewModal(false)} title="Student Details" size="lg">
           <div className="space-y-6">
             <div className="flex items-center gap-4">
               <Avatar size="xl" />

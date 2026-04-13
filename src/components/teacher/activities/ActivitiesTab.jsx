@@ -94,34 +94,53 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
     const act = runningActivity;
     LOG.info('ActivitiesTab', 'Student done', { studentName, stars, score });
 
-    // Resolve student ID from face recognition
+    // Resolve student ID — try exact name first, then title-cased fallback
     let studentId = null;
-    try {
-      const res = await axios.post(API_ENDPOINTS.GET_STUDENT_ID, { name: studentName });
-      if (res.data?.status === 'found') studentId = res.data.student_id;
-      LOG.info('ActivitiesTab', 'Resolved student ID', { studentId });
-    } catch (e) {
-      LOG.warn('ActivitiesTab', 'ID lookup failed', e.message);
-    }
-    if (!studentId) { LOG.warn('ActivitiesTab', 'No valid student_id — skipping save'); return; }
+    const namesToTry = [
+      studentName,
+      studentName.trim(),
+      studentName.trim().replace(/\b\w/g, c => c.toUpperCase()),
+    ].filter((v, i, a) => a.indexOf(v) === i); // dedupe
 
-    // Save to context
+    for (const name of namesToTry) {
+      try {
+        const res = await axios.post(API_ENDPOINTS.GET_STUDENT_ID, { name });
+        if (res.data?.status === 'found' && res.data.student_id) {
+          studentId = res.data.student_id;
+          LOG.info('ActivitiesTab', 'Resolved student ID', { studentId, name });
+          break;
+        }
+      } catch (e) {
+        LOG.warn('ActivitiesTab', 'ID lookup failed', e.message);
+      }
+    }
+
+    if (!studentId) {
+      LOG.warn('ActivitiesTab', 'Could not resolve student ID for', studentName);
+    }
+
+    // Always update StarContext — use real ID when available, name as last resort
     addActivityResult({
-      studentId, studentName,
+      studentId: studentId ?? studentName,
+      studentName,
       activityId:   act?.id   ?? 0,
       activityName: act?.name ?? 'Activity',
       stars, score,
     });
 
-    // Persist to backend with auth
-    const token = localStorage.getItem('token');
-    axios.post(`${API_BASE_URL}/save-activity-result`, {
-      student_id: studentId, student_name: studentName,
-      activity_id: act?.id ?? 0, activity_name: act?.name ?? 'Activity',
-      stars, score,
-    }, {
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(e => LOG.warn('ActivitiesTab', 'Save failed', e.message));
+    // Persist to backend only when we have a valid DB id
+    if (studentId) {
+      const token = localStorage.getItem('token');
+      axios.post(`${API_BASE_URL}/save-activity-result`, {
+        student_id: studentId, student_name: studentName,
+        activity_id: act?.id ?? 0, activity_name: act?.name ?? 'Activity',
+        stars, score,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(() => window.dispatchEvent(new Event('activity-result-saved')))
+        .catch(e => LOG.warn('ActivitiesTab', 'Save failed', e.message));
+    }
 
     setLastResult({ stars, score, studentName, activityName: act?.name });
     setShowBanner(true);

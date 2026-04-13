@@ -89,7 +89,6 @@ const ParentManagement = () => {
 
   const handleReject = async (parent) => {
     confirmAction(`Reject ${parent.name}?`, async () => {
-      closeConfirm();
       try {
         await axios.delete(`${API_BASE_URL}/api/admin/reject/${parent.id}`);
         setParents(prev => prev.filter(p => p.id !== parent.id));
@@ -97,6 +96,8 @@ const ParentManagement = () => {
       } catch (err) {
         console.error('Reject error:', err);
         toast('Failed to reject. Please try again.', 'error');
+      } finally {
+        closeConfirm();
       }
     });
   };

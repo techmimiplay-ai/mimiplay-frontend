@@ -45,22 +45,26 @@ const AdminPanel = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Top Bar */}
-      <div className="bg-white border-b-2 border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white/80 backdrop-blur-lg border-b-4 border-purple-200 px-4 sm:px-6 lg:px-8 py-3 md:py-4 sticky top-0 z-50">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-display font-bold text-gradient">Alexi Admin</h1>
+          <div className="flex items-center gap-2 md:gap-4">
+            <h1 className="text-2xl md:text-4xl font-display font-bold text-gradient">Alexi</h1>
+            <span className="hidden xs:inline-block px-2 md:px-4 py-1 bg-purple-100 text-purple-700 rounded-xl md:rounded-2xl text-[10px] md:text-sm font-bold">
+              Admin Panel 🛡️
+            </span>
           </div>
           <button
             onClick={handleLogout}
-            className="p-3 bg-red-100 hover:bg-red-200 rounded-xl transition-colors"
+            className="p-2 md:p-3 bg-red-100 hover:bg-red-500 hover:text-white text-red-600 rounded-xl md:rounded-2xl transition-all duration-300 group shadow-sm"
+            title="Logout"
           >
-            <LogOut size={20} className="text-red-600" />
+            <LogOut size={20} className="md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
           </button>
         </div>
-      </div>
+      </header>
 
       {/* Tab Navigation */}
-      <div className="sticky top-0 z-40 bg-white border-b-2 border-gray-200 px-4 sm:px-6 lg:px-8 py-3">
+      <nav className="bg-white/60 backdrop-blur-md border-b-4 border-gray-200 px-4 sm:px-6 lg:px-8 py-3 sticky top-[60px] md:top-[72px] z-40">
         {/* Mobile: 3 column grid (2 rows) */}
         <div className="grid grid-cols-3 gap-2 sm:hidden">
           {tabs.map((tab) => {
@@ -102,7 +106,7 @@ const AdminPanel = () => {
             );
           })}
         </div>
-      </div>
+      </nav>
 
       {/* Main Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button, PageLoader } from '../../../components/shared';
+import { Card, Button, PageLoader, ConfirmModal } from '../../../components/shared';
 import { Users, UserPlus, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
@@ -11,17 +11,19 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({});
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
-  const [systemStats, setSystemStats] = useState([]);
   const [approvingId, setApprovingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [confirm, setConfirm] = useState({ open: false, item: null });
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [refreshKey]);
 
   const fetchDashboardData = async () => {
+    setLoading(true);
     try {
       const [statsRes, pendingRes] = await Promise.all([
         axios.get(`${API_BASE_URL}/api/admin/dashboard-stats`),
@@ -29,8 +31,10 @@ const AdminDashboard = () => {
       ]);
       setStats(statsRes.data);
       setPendingApprovals(Array.isArray(pendingRes.data) ? pendingRes.data : []);
+      setRecentActivity(Array.isArray(statsRes.data?.recentActivity) ? statsRes.data.recentActivity : []);
     } catch (error) {
       console.error('Dashboard fetch error:', error);
+      setErrorMsg('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,12 @@ const AdminDashboard = () => {
   };
 
   const handleReject = async (item) => {
-    if (!window.confirm(`Reject ${item.name}?`)) return;
+    setConfirm({ open: true, item });
+  };
+
+  const confirmReject = async () => {
+    const item = confirm.item;
+    setConfirm({ open: false, item: null });
     setRejectingId(item.id);
     try {
       await axios.delete(`${API_BASE_URL}/api/admin/reject/${item.id}`);
@@ -82,7 +91,7 @@ const AdminDashboard = () => {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Admin Dashboard</h1>
           <p className="text-text/60">System overview and management</p>
         </div>
-        <button onClick={fetchDashboardData}
+        <button onClick={() => setRefreshKey(k => k + 1)}
           className="text-sm text-primary-600 hover:underline font-semibold">
           🔄 Refresh
         </button>
@@ -183,7 +192,7 @@ const AdminDashboard = () => {
           </div>
 
           <div className="mt-4">
-            <Button variant="outline" className="w-full" onClick={fetchDashboardData}>
+            <Button variant="outline" className="w-full" onClick={() => setRefreshKey(k => k + 1)}>
               Refresh Pending ({pendingApprovals.length})
             </Button>
           </div>
@@ -225,28 +234,22 @@ const AdminDashboard = () => {
         {/* System Status */}
         <Card>
           <h2 className="text-xl sm:text-2xl font-bold text-text mb-4">System Status</h2>
-          {systemStats.length === 0 ? (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
-              <div className="flex items-center gap-2">
-                <CheckCircle size={20} className="text-green-600" />
-                <p className="text-sm font-semibold text-green-900">All systems operational</p>
-              </div>
+          <div className="p-4 bg-green-50 border border-green-200 rounded-xl">
+            <div className="flex items-center gap-2">
+              <CheckCircle size={20} className="text-green-600" />
+              <p className="text-sm font-semibold text-green-900">All systems operational</p>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {systemStats.map((stat, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                  <span className="text-sm font-semibold text-text">{stat.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-text">{stat.value}</span>
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
         </Card>
       </div>
+      <ConfirmModal
+        isOpen={confirm.open}
+        title="Reject Registration?"
+        message={confirm.item ? `Remove ${confirm.item.name} from pending approvals?` : ''}
+        confirmLabel="Yes, Reject"
+        onConfirm={confirmReject}
+        onCancel={() => setConfirm({ open: false, item: null })}
+      />
     </div>
   );
 };
