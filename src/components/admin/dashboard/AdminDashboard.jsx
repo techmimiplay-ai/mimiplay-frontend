@@ -240,6 +240,40 @@ const AdminDashboard = () => {
       console.error("Dashboard fetch error:", error);
     }
   };
+  const handleApprove = async (user) => {
+    try {
+      const res = await axios.put(
+        `${API_BASE_URL}/api/admin/approve/${user.id}`,
+        {},
+      );
+
+      if (res.status === 200) {
+        alert(`${user.name} approved successfully`);
+        fetchDashboardData();
+      }
+    } catch (error) {
+      console.error("Approval error:", error);
+      alert("Error approving user");
+    }
+  };
+
+  const handleReject = async (user) => {
+    if (window.confirm(`Are you sure you want to reject ${user.name}?`)) {
+      try {
+        const res = await axios.delete(
+          `${API_BASE_URL}/api/admin/reject/${user.id}`,
+        );
+
+        if (res.status === 200) {
+          alert(`${user.name} rejected successfully`);
+          fetchDashboardData();
+        }
+      } catch (error) {
+        console.error("Rejection error:", error);
+        alert("Error rejecting user");
+      }
+    }
+  };
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -252,37 +286,49 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <Users size={24} className="text-blue-600 mb-2" />
-          <p className="text-3xl font-bold text-blue-900">{stats?.totalTeachers || 0}</p>
+          <p className="text-3xl font-bold text-blue-900">
+            {stats?.totalTeachers || 0}
+          </p>
           <p className="text-sm text-blue-700">Teachers</p>
         </Card>
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <UserPlus size={24} className="text-green-600 mb-2" />
-          <p className="text-3xl font-bold text-green-900">{stats?.totalParents || 0}</p>
+          <p className="text-3xl font-bold text-green-900">
+            {stats?.totalParents || 0}
+          </p>
           <p className="text-sm text-green-700">Parents</p>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <Users size={24} className="text-purple-600 mb-2" />
-          <p className="text-3xl font-bold text-purple-900">{stats?.totalStudents || 0}</p>
+          <p className="text-3xl font-bold text-purple-900">
+            {stats?.totalStudents || 0}
+          </p>
           <p className="text-sm text-purple-700">Students</p>
         </Card>
 
         <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200">
           <Clock size={24} className="text-yellow-600 mb-2" />
-          <p className="text-3xl font-bold text-yellow-900">{stats?.pendingApprovals || 0}</p>
+          <p className="text-3xl font-bold text-yellow-900">
+            {stats?.pendingApprovals || 0}
+          </p>
           <p className="text-sm text-yellow-700">Pending</p>
         </Card>
 
         <Card className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200">
           <TrendingUp size={24} className="text-cyan-600 mb-2" />
-          <p className="text-3xl font-bold text-cyan-900">{stats?.activeToday || 0}</p>
+          <p className="text-3xl font-bold text-cyan-900">
+            {stats?.activeToday || 0}
+          </p>
           <p className="text-sm text-cyan-700">Active Today</p>
         </Card>
 
         <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <CheckCircle size={24} className="text-green-600 mb-2" />
-          <p className="text-lg font-bold text-green-900">{stats.systemHealth}</p>
+          <p className="text-lg font-bold text-green-900">
+            {stats.systemHealth}
+          </p>
           <p className="text-sm text-green-700">System Health</p>
         </Card>
       </div>
@@ -293,8 +339,12 @@ const AdminDashboard = () => {
           <div className="flex items-center gap-3 mb-4">
             <AlertCircle size={28} className="text-yellow-600" />
             <div>
-              <h2 className="text-2xl font-bold text-text">Pending Approvals</h2>
-              <p className="text-sm text-text/60">Review and approve new registrations</p>
+              <h2 className="text-2xl font-bold text-text">
+                Pending Approvals
+              </h2>
+              <p className="text-sm text-text/60">
+                Review and approve new registrations
+              </p>
             </div>
           </div>
 
@@ -308,11 +358,13 @@ const AdminDashboard = () => {
                 className="flex items-center justify-between p-4 bg-white rounded-2xl"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`
+                  <div
+                    className={`
                     w-12 h-12 rounded-full flex items-center justify-center font-bold text-white
-                    ${item.type === 'teacher' ? 'bg-blue-500' : 'bg-green-500'}
-                  `}>
-                    {item.type === 'teacher' ? '👨‍🏫' : '👨‍👩‍👧'}
+                    ${item.type === "teacher" ? "bg-blue-500" : "bg-green-500"}
+                  `}
+                  >
+                    {item.type === "teacher" ? "👨‍🏫" : "👨‍👩‍👧"}
                   </div>
                   <div>
                     <h3 className="font-semibold text-text">{item.name}</h3>
@@ -321,10 +373,18 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="primary">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => handleApprove(item)}
+                  >
                     Approve
                   </Button>
-                  <Button size="sm" variant="outline">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleReject(item)}
+                  >
                     Reject
                   </Button>
                 </div>
@@ -353,18 +413,22 @@ const AdminDashboard = () => {
                 transition={{ delay: index * 0.1 }}
                 className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl"
               >
-                <div className={`
+                <div
+                  className={`
                   w-8 h-8 rounded-full flex items-center justify-center mt-1
-                  ${activity.type === 'success' ? 'bg-green-100' : 'bg-blue-100'}
-                `}>
-                  {activity.type === 'success' ? (
+                  ${activity.type === "success" ? "bg-green-100" : "bg-blue-100"}
+                `}
+                >
+                  {activity.type === "success" ? (
                     <CheckCircle size={16} className="text-green-600" />
                   ) : (
                     <AlertCircle size={16} className="text-blue-600" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-text">{activity.action}</p>
+                  <p className="text-sm font-semibold text-text">
+                    {activity.action}
+                  </p>
                   <p className="text-sm text-text/60">{activity.user}</p>
                   <p className="text-xs text-text/50 mt-1">{activity.time}</p>
                 </div>
@@ -378,10 +442,17 @@ const AdminDashboard = () => {
           <h2 className="text-2xl font-bold text-text mb-4">System Status</h2>
           <div className="space-y-4">
             {systemStats.map((stat, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <span className="text-sm font-semibold text-text">{stat.label}</span>
+              <div
+                key={index}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
+              >
+                <span className="text-sm font-semibold text-text">
+                  {stat.label}
+                </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-text">{stat.value}</span>
+                  <span className="text-sm font-bold text-text">
+                    {stat.value}
+                  </span>
                   <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 </div>
               </div>
@@ -391,7 +462,9 @@ const AdminDashboard = () => {
           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl">
             <div className="flex items-center gap-2">
               <CheckCircle size={20} className="text-green-600" />
-              <p className="text-sm font-semibold text-green-900">All systems operational</p>
+              <p className="text-sm font-semibold text-green-900">
+                All systems operational
+              </p>
             </div>
           </div>
         </Card>

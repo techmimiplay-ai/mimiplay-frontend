@@ -496,12 +496,32 @@ const TeacherManagement = () => {
     alert(`${teacher.name} approved successfully`);
   };
 
-  const handleReject = (teacher) => {
-    if (window.confirm(`Are you sure you want to reject ${teacher.name}?`)) {
-      setTeachers(teachers.filter(t => t.id !== teacher.id));
+const handleReject = async (teacher) => {
+  if (window.confirm(`Are you sure you want to reject ${teacher.name}?`)) {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/admin/reject/${teacher.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(`Error: ${data.msg}`);
+        return;
+      }
+
+      setTeachers(teachers.filter((t) => t.id !== teacher.id));
       setShowApprovalModal(false);
+      alert(`${teacher.name} rejected successfully`);
+    } catch (err) {
+      console.error(err);
+      alert("Error rejecting teacher");
     }
-  };
+  }
+};
 
   const handleDeactivate = (teacher) => {
     if (window.confirm(`Are you sure you want to deactivate ${teacher.name}?`)) {
