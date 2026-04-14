@@ -391,13 +391,29 @@ const ParentManagement = () => {
     alert(`${parent.name} approved successfully`);
   };
 
-  const handleReject = (parent) => {
-    if (window.confirm(`Are you sure you want to reject ${parent.name}?`)) {
-      setParents(parents.filter(p => p.id !== parent.id));
-      setShowApprovalModal(false);
-    }
-  };
+const handleReject = async (parent) => {
+  if (window.confirm(`Are you sure you want to reject ${parent.name}?`)) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/reject/${parent.id}`, {
+        method: "DELETE",
+      });
 
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(`Error: ${data.msg}`);
+        return;
+      }
+
+      setParents(parents.filter((p) => p.id !== parent.id));
+      setShowApprovalModal(false);
+      alert(`${parent.name} rejected successfully`);
+    } catch (err) {
+      console.error(err);
+      alert("Error rejecting parent");
+    }
+  }
+};
   const handleUpdateParent = async () => {
     try {
       const res = await fetch(
