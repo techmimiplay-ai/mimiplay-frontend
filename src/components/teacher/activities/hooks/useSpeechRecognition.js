@@ -69,11 +69,13 @@ export function useSpeechRecognition() {
     let cancelled = false;
     const listenStart = Date.now();
 
+    let timeoutId = null;
     const finish = () => {
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       rec.onresult = null;
       rec.onend    = null;
       rec.onerror  = null;
+      rec.onspeechstart = null;
       try { rec.stop(); } catch {}
     };
 
@@ -82,6 +84,14 @@ export function useSpeechRecognition() {
         answer,
         timeoutMs: SR_TIMEOUT,
       });
+    };
+
+    rec.onspeechstart = () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+        LOG.info('SR', 'Speech started — cleared no-answer timeout');
+      }
     };
 
     rec.onresult = e => {
@@ -118,7 +128,7 @@ export function useSpeechRecognition() {
       onTimeout();
     };
 
-    const timeoutId = setTimeout(() => {
+    timeoutId = setTimeout(() => {
       if (answered || cancelled) return;
       LOG.warn('SR', `${SR_TIMEOUT}ms timeout reached — treating as no answer`);
       answered = true;

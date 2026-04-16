@@ -45,6 +45,7 @@ import { WordCard, PictureGuessCard, CountingCard, PatternCard } from './cards/i
 import { useSpeak }              from './hooks/useSpeak';
 import { useFaceDetect }         from './hooks/useFaceDetect';
 import { useSpeechRecognition }  from './hooks/useSpeechRecognition';
+import { useAudioSpeechRecorder } from './hooks/useAudioSpeechRecorder';
 import {
   ACTIVITY_WORDS, shuffleArray, buildQuiz12, normalizeQuestions,
   getWordLabel, getAnswer, stripEmojis, NUM_WORDS,
@@ -182,7 +183,6 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const [current,        setCurrent]        = useState(0);
   const [correct,        setCorrect]        = useState(0);
   const [transcript,     setTranscript]     = useState('');
-  const [listening,      setListening]      = useState(false);
   const [mimiSaying,     setMimiSaying]     = useState('');
   const [isCorrect,      setIsCorrect]      = useState(null);
   const [starsEarned,    setStarsEarned]    = useState(0);
@@ -221,7 +221,8 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const { startCameraPoll, stopCamera, resetRecognized, pollRef, cameraStreamRef } =
     useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef });
 
-  const { startListening, checkForControlWord } = useSpeechRecognition();
+  const { startRecording, stopRecording, isRecording, isSilence } = useAudioSpeechRecorder();
+  const { checkForControlWord } = useSpeechRecognition(); // Keep for command parsing only
 
   /* ── Derived ───────────────────────────────────────────────── */
   const total       = words.length;
@@ -427,24 +428,27 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     const answer = getAnswer(item);
     LOG.phase('asking', 'listening', { answer });
 
-    setListening(true);
-    const cleanup = startListening({
-      answer,
-      onResult: (t) => {
-        setTranscript(t);
-        setListening(false);
-        const cmd = checkForControlWord(t);
-        if (cmd) { handleControlCommand(cmd); return; }
-        if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, t); }
-      },
-      onTimeout: () => {
-        setListening(false);
-        if (!answeredRef.current) { answeredRef.current = true; sendToLLM(answer, ''); }
-      },
-      onControl: handleControlCommand,
+    let cancelled = false;
+    startRecording(async (blob) => {
+      if (cancelled || answeredRef.current) return;
+      
+      const silent = await isSilence(blob);
+      if (silent) {
+        LOG.info('SR', 'Silence detected — treating as no answer');
+        if (!answeredRef.current) { answeredRef.current = true; sendAudioToBackend(null, answer); }
+        return;
+      }
+
+      if (!answeredRef.current) {
+        answeredRef.current = true;
+        sendAudioToBackend(blob, answer);
+      }
+    }).catch(e => {
+        LOG.error('SR', 'Mic start failed', e.message);
+        if (!answeredRef.current) { answeredRef.current = true; sendAudioToBackend(null, answer); }
     });
 
-    return () => { setListening(false); cleanup?.(); };
+    return () => { cancelled = true; stopRecording(); };
   }, [phase, current]); // eslint-disable-line
 
   /* ════════════════════════════════════════════════════════════
@@ -471,49 +475,56 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     return false;
   }
 
-  async function sendToLLM(word, childSaid) {
+  async function sendAudioToBackend(blob, word) {
     setPhase('checking');
     setMimiSaying('Mimi is thinking… 🧠');
-    const heard = (childSaid || '').trim();
-    LOG.info('LLM', 'Checking answer', { word, heard });
-    const t0 = Date.now();
-
+    
     const buildMsg = (ok, raw) => stripEmojis(
       raw ?? (ok ? `Wonderful! ${word} is correct!` : `Never mind! The answer was ${word}! Keep trying!`)
     );
-
-    // Helper: fire feedback TTS in background immediately
     const prefetchFeedback = (msg) => prefetchTTS(msg, 'feedback');
 
-    if (!heard) {
+    if (!blob) {
       const msg = buildMsg(false, `Oops! Nothing heard. The answer was ${word}! Try next time!`);
       prefetchFeedback(msg);
       setLlmFeedback(msg); handleResult(false, msg); return;
     }
 
-    if (checkAnswerLocally(word, heard)) {
-      LOG.info('LLM', '✅ Local fast-path match', { ms: Date.now() - t0 });
-      const msg = buildMsg(true);
-      prefetchFeedback(msg);
-      setLlmFeedback(msg); handleResult(true, msg); return;
-    }
+    const t0 = Date.now();
+    LOG.info('SR', 'Sending audio to backend', { word, blobSize: blob.size });
 
     try {
-      const res = await axios.post(API_ENDPOINTS.ACTIVITY_CHECK, {
-        word, child_said: heard, activity_name: activity.name, student_name: studentName,
-      });
-      LOG.info('LLM', 'API response', { ms: Date.now() - t0, correct: res.data?.result?.correct });
+      const formData = new FormData();
+      formData.append('audio', blob, 'activity_answer.webm');
+      formData.append('word', word);
+      formData.append('activity_name', activity.name);
+      formData.append('student_name', studentName);
+
+      const res = await axios.post(API_ENDPOINTS.ACTIVITY_CHECK_AUDIO, formData);
+      LOG.info('SR', 'Backend response', { ms: Date.now() - t0, status: res.data?.status });
+
+      if (res.data?.status === 'nothing_heard') {
+        const msg = buildMsg(false, `Oops! Nothing heard. The answer was ${word}! Try next time!`);
+        prefetchFeedback(msg);
+        setLlmFeedback(msg); handleResult(false, msg); return;
+      }
+
+      const heard = res.data?.detected_text || '';
+      setTranscript(heard);
+      
+      const cmd = checkForControlWord(heard);
+      if (cmd) { handleControlCommand(cmd); return; }
+
       const r   = res.data?.result;
       const ok  = r?.correct === true || checkAnswerLocally(word, heard);
       const msg = buildMsg(ok, r?.feedback);
       prefetchFeedback(msg);
       setLlmFeedback(msg); handleResult(ok, msg);
     } catch (e) {
-      LOG.error('LLM', 'API failed — falling back to local check', e.message);
-      const ok  = checkAnswerLocally(word, heard);
-      const msg = buildMsg(ok);
+      LOG.error('SR', 'Backend call failed', e.message);
+      const msg = buildMsg(false);
       prefetchFeedback(msg);
-      setLlmFeedback(msg); handleResult(ok, msg);
+      setLlmFeedback(msg); handleResult(false, msg);
     }
   }
 
@@ -603,7 +614,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     if (isPausedRef.current) return;
     LOG.info('UI', 'Pause button pressed');
     cancelSpeech(); clearTimeout(resultTimerRef.current);
-    isPausedRef.current = true; setIsPaused(true); setListening(false);
+    isPausedRef.current = true; setIsPaused(true);
     setMimiSaying('⏸️ Activity paused'); setMimiVideo(mimiIdleVideo);
   }
 
@@ -657,7 +668,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
    *  RENDER WORD CARD
    * ════════════════════════════════════════════════════════════ */
   function renderWordCard() {
-    const shared = { mimiSaying, phase, listening, transcript };
+    const shared = { mimiSaying, phase, listening: isRecording, transcript };
 
     if (activity.id === 9)
       return <PictureGuessCard emoji={currentItem?._llmEmoji || WORD_EMOJIS[word] || '🖼️'} {...shared} />;

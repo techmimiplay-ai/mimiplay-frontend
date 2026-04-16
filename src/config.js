@@ -74,6 +74,7 @@ export const API_ENDPOINTS = {
   START_MIMI_SESSION:   `${API_BASE_URL}/start-mimi-session`,
   GET_MIMI_STATUS:      `${API_BASE_URL}/mimi-get`,
   ACTIVITY_CHECK:       `${API_BASE_URL}/activity-check`,
+  ACTIVITY_CHECK_AUDIO: `${API_BASE_URL}/activity-check-audio`,
   ACTIVITY_EVALUATE:    `${API_BASE_URL}/activity-evaluate`,
   ACTIVITY_SAVE_STARS:  `${API_BASE_URL}/activity-save-stars`,
   ACTIVITY_GET_STARS:   (studentId) => `${API_BASE_URL}/activity-get-stars/${studentId}`,
