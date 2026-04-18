@@ -314,7 +314,7 @@ const MimiCustomizer = () => {
 
             {/* Footer note */}
             <div style={S.footerNote}>
-              ✨ More outfits coming soon!<br />
+              ✨ Pick a background and outfit for Mimi!<br />
               Your choice is saved automatically.
             </div>
           </motion.div>

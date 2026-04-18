@@ -12,20 +12,19 @@ import { API_ENDPOINTS } from '../config'
 // import bgImage       from '../assets/images/mimi/bg.jpg'
 import useMimiCustomizer from '../hooks/useMimiCustomizer'
 import MimiCustomizer from '../components/mimi/MimiCustomizer'
-// ── TODO: Uncomment when MimiCharacter (Live2D) design is ready ──
-// import MimiCharacter from '../components/mimi/MimiCharacter'
-import mimiVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
+import MimiCharacter from '../components/mimi/MimiCharacter'
+// import mimiVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Logging — dev only, silent in production
 // ─────────────────────────────────────────────────────────────────────────────
 const log = import.meta.env.DEV
   ? (area, msg, data) => {
-      const ts = new Date().toISOString().slice(11, 23)
-      if (data !== undefined) console.log(`[${ts}] [${area}] ${msg}`, data)
-      else                    console.log(`[${ts}] [${area}] ${msg}`)
-    }
-  : () => {}
+    const ts = new Date().toISOString().slice(11, 23)
+    if (data !== undefined) console.log(`[${ts}] [${area}] ${msg}`, data)
+    else console.log(`[${ts}] [${area}] ${msg}`)
+  }
+  : () => { }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Keyword helpers
@@ -34,18 +33,18 @@ const clean = (t) => (t || '').toLowerCase().replace(/[^a-z\s]/g, '').trim()
 
 const checkForWakeWord = (t) => {
   const l = clean(t)
-  return ['hey alexi','hey alexa','hi alexi','hi alexa','hello alexi','hello alexa',
-          'okay alexi','ok alexi','okay alexa','ok alexa'].some(w => l.includes(w))
+  return ['hey alexi', 'hey alexa', 'hi alexi', 'hi alexa', 'hello alexi', 'hello alexa',
+    'okay alexi', 'ok alexi', 'okay alexa', 'ok alexa'].some(w => l.includes(w))
 }
 const checkForByeWord = (t) => {
   const l = clean(t)
-  return ['bye alexi','bye alexa','goodbye alexi','goodbye alexa','stop alexi',
-          'stop alexa','alexi stop','alexa stop','exit alexi','exit alexa'].some(w => l.includes(w))
+  return ['bye alexi', 'bye alexa', 'goodbye alexi', 'goodbye alexa', 'stop alexi',
+    'stop alexa', 'alexi stop', 'alexa stop', 'exit alexi', 'exit alexa'].some(w => l.includes(w))
 }
 const checkForPlayVideoCommand = (t) => {
   const l = clean(t)
-  return ['alexi play video','alexa play video','alexi play the video',
-          'alexa play the video','play the video','play video'].some(w => l.includes(w))
+  return ['alexi play video', 'alexa play video', 'alexi play the video',
+    'alexa play the video', 'play the video', 'play video'].some(w => l.includes(w))
 }
 
 const getYtEmbedUrl = (url) => {
@@ -95,24 +94,24 @@ const isSilence = async (blob) => {
 
 const P = {
   // Card backgrounds — soft white with gentle tint
-  cardWhite:  'rgba(255,255,255,0.92)',
-  cardBlue:   'rgba(224,242,254,0.96)',   // very light sky blue
+  cardWhite: 'rgba(255,255,255,0.92)',
+  cardBlue: 'rgba(224,242,254,0.96)',   // very light sky blue
   cardPurple: 'rgba(237,233,254,0.96)',   // very light lavender
-  cardPeach:  'rgba(255,237,213,0.96)',   // very light peach
-  cardGreen:  'rgba(220,252,231,0.96)',   // very light mint
+  cardPeach: 'rgba(255,237,213,0.96)',   // very light peach
+  cardGreen: 'rgba(220,252,231,0.96)',   // very light mint
 
   // Accent colours — muted, not neon
-  blue:   '#60a5fa',   // soft sky blue
+  blue: '#60a5fa',   // soft sky blue
   purple: '#a78bfa',   // soft lavender
-  pink:   '#f9a8d4',   // soft rose
-  peach:  '#fdba74',   // soft peach
-  mint:   '#6ee7b7',   // soft mint
+  pink: '#f9a8d4',   // soft rose
+  peach: '#fdba74',   // soft peach
+  mint: '#6ee7b7',   // soft mint
   yellow: '#fde68a',   // soft butter yellow
 
   // Text
-  dark:    '#374151',   // warm dark grey — not harsh black
-  medium:  '#6b7280',
-  light:   '#9ca3af',
+  dark: '#374151',   // warm dark grey — not harsh black
+  medium: '#6b7280',
+  light: '#9ca3af',
 
   // Shadows — very soft
   shadow: '0 4px 24px rgba(0,0,0,0.08)',
@@ -137,46 +136,45 @@ const MimiChat = () => {
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [sessionState, setSessionState] = useState('idle')
-  const [studentName, setStudentName]   = useState('')
-  const [studentId, setStudentId]       = useState('')
-  const [sessionId, setSessionId]       = useState('')
-  const [aiPhase, setAiPhase]           = useState('listening')
+  const [studentName, setStudentName] = useState('')
+  const [studentId, setStudentId] = useState('')
+  const [sessionId, setSessionId] = useState('')
+  const [aiPhase, setAiPhase] = useState('listening')
 
-  const [mimiText, setMimiText]           = useState('')
+  const [mimiText, setMimiText] = useState('')
   const [displayedText, setDisplayedText] = useState('')
-  const [isTyping, setIsTyping]           = useState(false)
-  const [imageUrl, setImageUrl]           = useState(null)
-  const [ytVideo, setYtVideo]             = useState(null)
-  const [ytPlaying, setYtPlaying]         = useState(false)
-  const [chatHistory, setChatHistory]     = useState([])
-  const [answerTimer, setAnswerTimer]     = useState(0)
-  const [webcamActive, setWebcamActive]   = useState(false)
-  const [isRecording, setIsRecording]     = useState(false)
-  const [isSpeaking, setIsSpeaking]       = useState(false)
-  const [errorMsg, setErrorMsg]           = useState('')
-  const { currentBgStyle } = useMimiCustomizer()
+  const [isTyping, setIsTyping] = useState(false)
+  const [imageUrl, setImageUrl] = useState(null)
+  const [ytVideo, setYtVideo] = useState(null)
+  const [ytPlaying, setYtPlaying] = useState(false)
+  const [chatHistory, setChatHistory] = useState([])
+  const [answerTimer, setAnswerTimer] = useState(0)
+  const [webcamActive, setWebcamActive] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const { currentBgStyle, selectedClothes } = useMimiCustomizer()
 
   // ── Refs ──────────────────────────────────────────────────────────────────
-  const videoRef            = useRef(null)
-  const canvasRef           = useRef(null)
-  const facePollingRef      = useRef(null)
-  const mediaRecorderRef    = useRef(null)
-  const chatHistoryRef      = useRef([])
-  const sessionStateRef     = useRef('idle')
-  const aiPhaseRef          = useRef('listening')
-  const isSpeakingRef       = useRef(false)
-  const isRecordingRef      = useRef(false)
-  const studentNameRef      = useRef('')
-  const studentIdRef        = useRef('')
-  const sessionIdRef        = useRef('')
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const facePollingRef = useRef(null)
+  const mediaRecorderRef = useRef(null)
+  const chatHistoryRef = useRef([])
+  const sessionStateRef = useRef('idle')
+  const aiPhaseRef = useRef('listening')
+  const isSpeakingRef = useRef(false)
+  const isRecordingRef = useRef(false)
+  const studentNameRef = useRef('')
+  const studentIdRef = useRef('')
+  const sessionIdRef = useRef('')
   const startMimiSessionRef = useRef(null)
-  const isMountedRef        = useRef(true)
-  const greetingActiveRef   = useRef(false)
+  const isMountedRef = useRef(true)
+  const greetingActiveRef = useRef(false)
   const consecutiveFailsRef = useRef(0)
-  const recordingStartRef   = useRef(0)
-  // ── TODO: Uncomment when MimiCharacter (Live2D) design is ready ──
-  // const live2dRef      = useRef(null)
-  // const live2dStateRef  = useRef(null)
+  const recordingStartRef = useRef(0)
+  const live2dRef = useRef(null)
+  const live2dStateRef = useRef(null)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -185,8 +183,8 @@ const MimiChat = () => {
 
   useEffect(() => { log('STATE', `sessionState → ${sessionState}`); sessionStateRef.current = sessionState }, [sessionState])
   useEffect(() => { studentNameRef.current = studentName }, [studentName])
-  useEffect(() => { studentIdRef.current   = studentId   }, [studentId])
-  useEffect(() => { sessionIdRef.current   = sessionId   }, [sessionId])
+  useEffect(() => { studentIdRef.current = studentId }, [studentId])
+  useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
   useEffect(() => { chatHistoryRef.current = chatHistory }, [chatHistory])
 
   const setAiPhaseSync = useCallback((phase) => {
@@ -299,7 +297,7 @@ const MimiChat = () => {
     setStudentName(''); setMimiText(''); setDisplayedText('')
     setImageUrl(null); setYtVideo(null); setChatHistory([])
     setIsTyping(false); setAiPhaseSync('listening'); setAnswerTimer(0)
-    chatHistoryRef.current    = []
+    chatHistoryRef.current = []
     greetingActiveRef.current = false
     await startWebcam()
     facePollingRef.current = setInterval(async () => {
@@ -309,11 +307,11 @@ const MimiChat = () => {
         canvas.width = 320; canvas.height = 240
         canvas.getContext('2d').drawImage(video, 0, 0, 320, 240)
         const base64 = canvas.toDataURL('image/jpeg', 0.7)
-        const res    = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 })
+        const res = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 })
         log('FACE', `person="${res.data.person}"`)
         if (res.data.person) {
           const name = res.data.person.replace(/_/g, ' ').trim()
-          const sid  = res.data.student_id || ''
+          const sid = res.data.student_id || ''
           clearInterval(facePollingRef.current); facePollingRef.current = null
           stopWebcam(); setStudentName(name); setStudentId(sid)
           studentIdRef.current = sid
@@ -354,8 +352,8 @@ const MimiChat = () => {
     setStudentId(resolvedId); studentIdRef.current = resolvedId
 
     try {
-      const res           = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: resolvedId, session_id: sid })
-      const greetingText  = res.data.greeting_text
+      const res = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: resolvedId, session_id: sid })
+      const greetingText = res.data.greeting_text
       const greetingAudio = res.data.greeting_audio
       log('SESSION', 'Greeting received', { greetingText })
       setAiPhaseSync('responding'); setMimiText(greetingText)
@@ -385,12 +383,12 @@ const MimiChat = () => {
     try { await axios.post(API_ENDPOINTS.MIMI_STOP_SESSION, { session_id: sessionIdRef.current }) }
     catch (e) { log('SESSION', 'stop error', e.message) }
     try {
-      const res      = await axios.get(API_ENDPOINTS.MIMI_CHAT_HISTORY, {
+      const res = await axios.get(API_ENDPOINTS.MIMI_CHAT_HISTORY, {
         params: { student_name: studentNameRef.current, session_id: sessionIdRef.current }
       })
       if (!isMountedRef.current) return
       const chats = res.data?.chats || []
-      const msgs  = chats.flatMap(doc => doc.messages || [])
+      const msgs = chats.flatMap(doc => doc.messages || [])
       setChatHistory(msgs.length > 0 ? msgs : chatHistoryRef.current)
     } catch (e) { if (isMountedRef.current) setChatHistory(chatHistoryRef.current) }
     if (!isMountedRef.current) return
@@ -409,7 +407,7 @@ const MimiChat = () => {
     const formData = new FormData()
     formData.append('audio', blob, 'audio.webm')
     formData.append('student_name', studentNameRef.current)
-    formData.append('session_id',   sessionIdRef.current)
+    formData.append('session_id', sessionIdRef.current)
     try {
       const res = await axios.post(endpoint, formData)
       log('AUDIO_SEND', 'top-level keys:', Object.keys(res.data))
@@ -424,15 +422,15 @@ const MimiChat = () => {
       if (res.data.status !== 'success') { log('AUDIO_SEND', `non-success: ${res.data.status}`); setAiPhaseSync('listening'); return }
       const transcribed = res.data.text || ''
       log('AUDIO_SEND', `transcription: "${transcribed}"`)
-      if (checkForByeWord(transcribed))          { stopSession(); return }
+      if (checkForByeWord(transcribed)) { stopSession(); return }
       if (checkForPlayVideoCommand(transcribed)) { setYtPlaying(true); setAiPhaseSync('listening'); return }
-      if (!transcribed.trim())                  { setAiPhaseSync('listening'); return }
+      if (!transcribed.trim()) { setAiPhaseSync('listening'); return }
       clearResponse()
       // Answer is in res.data.data.text (confirmed from logs)
-      const responseText  = res.data.data?.text || res.data.data?.answer || res.data.text || res.data.answer || res.data.response || ''
+      const responseText = res.data.data?.text || res.data.data?.answer || res.data.text || res.data.answer || res.data.response || ''
       const responseAudio = res.data.data?.audio || res.data.audio || null
-      log('AUDIO_SEND', `answer — data.text="${(res.data.data?.text||'').slice(0,60)}"`)
-      log('AUDIO_SEND', `✓ using: "${responseText.slice(0,80)}" | audio=${!!responseAudio}`)
+      log('AUDIO_SEND', `answer — data.text="${(res.data.data?.text || '').slice(0, 60)}"`)
+      log('AUDIO_SEND', `✓ using: "${responseText.slice(0, 80)}" | audio=${!!responseAudio}`)
       axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
         student_name: studentNameRef.current, student_id: studentIdRef.current,
         session_id: sessionIdRef.current,
@@ -442,7 +440,7 @@ const MimiChat = () => {
       setAiPhaseSync('responding')
       setMimiText(responseText)
       setImageUrl(res.data.data?.image_url || res.data.image_url || null)
-      setYtVideo(res.data.data?.yt_video   || res.data.yt_video  || null)
+      setYtVideo(res.data.data?.yt_video || res.data.yt_video || null)
       if (responseAudio) {
         playBase64Audio(responseAudio, () => { log('AUDIO_SEND', '✓ audio done'); setAiPhaseSync('listening') })
       } else {
@@ -462,11 +460,11 @@ const MimiChat = () => {
   // ── Microphone ────────────────────────────────────────────────────────────
   const startRecording = useCallback(async () => {
     const state = sessionStateRef.current
-    if (state === 'detecting')              return
-    if (state === 'stopped')                return
-    if (greetingActiveRef.current)          return
-    if (isRecordingRef.current)             return
-    if (isSpeakingRef.current)             return
+    if (state === 'detecting') return
+    if (state === 'stopped') return
+    if (greetingActiveRef.current) return
+    if (isRecordingRef.current) return
+    if (isSpeakingRef.current) return
     if (aiPhaseRef.current !== 'listening') return
     isRecordingRef.current = true; setIsRecording(true)
     recordingStartRef.current = Date.now()
@@ -476,12 +474,12 @@ const MimiChat = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       log('MIC', `mic acquired in ${Date.now() - t0}ms`)
       const recorder = new MediaRecorder(stream)
-      const chunks   = []
+      const chunks = []
       recorder.ondataavailable = (e) => { if (e.data.size > 0) { chunks.push(e.data); log('MIC', `chunk: ${e.data.size}b`) } }
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         isRecordingRef.current = false; setIsRecording(false)
-        const blob     = new Blob(chunks, { type: 'audio/webm' })
+        const blob = new Blob(chunks, { type: 'audio/webm' })
         const duration = Date.now() - recordingStartRef.current
         log('MIC', `⏹ stopped — blob=${blob.size}b | duration=${duration}ms`)
         // ── Silence check: skip sending if no real speech detected ──
@@ -509,7 +507,7 @@ const MimiChat = () => {
 
   useEffect(() => {
     if (!isRecording && !isSpeaking && aiPhase === 'listening' &&
-        sessionState !== 'detecting' && sessionState !== 'stopped') {
+      sessionState !== 'detecting' && sessionState !== 'stopped') {
       const t = setTimeout(startRecording, 50)
       return () => clearTimeout(t)
     }
@@ -531,10 +529,10 @@ const MimiChat = () => {
     if (role !== 'teacher' && role !== 'admin') localStorage.removeItem('selectedChild')
   }
 
-  const embedUrl      = getYtEmbedUrl(ytVideo)
+  const embedUrl = getYtEmbedUrl(ytVideo)
   const showListening = sessionState === 'running' && aiPhase === 'listening' && !isSpeaking
   // Show response panel: text response OR an active YouTube video
-  const showResponse  = sessionState === 'running' &&
+  const showResponse = sessionState === 'running' &&
     ((!!mimiText && (aiPhase === 'responding' || aiPhase === 'listening')) || !!ytVideo)
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -551,7 +549,26 @@ const MimiChat = () => {
     }}>
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <MimiCustomizer />
-      {/* Soft vignette at bottom so avatar blends in */}
+
+      {/* Character — absolutely pinned to bottom-left */}
+      <div style={{
+        position: 'absolute',
+        bottom: '-19%',     // 👈 slight negative to "sink" feet
+        left: '30px',
+        width: '480px',
+        height: 'auto',      // 👈 don't force height
+        zIndex: 3,
+        pointerEvents: 'none',
+      }}>
+        <MimiCharacter
+          modelRef={live2dRef}
+          stateRef={live2dStateRef}
+          isSpeaking={isSpeaking}
+          outfit={selectedClothes || 'uniform'}
+        />
+      </div>
+
+      {/* Soft vignette */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
         background: 'linear-gradient(to top, rgba(0,0,0,0.12) 0%, transparent 40%)',
@@ -596,13 +613,40 @@ const MimiChat = () => {
               style={softPill('rgba(253,232,255,0.95)', '0 4px 16px rgba(167,139,250,0.2)')}
             >
               <span style={{ fontSize: 16 }}>🌸</span>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#7c3aed',
-                maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{
+                fontSize: 12, fontWeight: 800, color: '#7c3aed',
+                maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+              }}>
                 {studentName}
               </span>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Test speaking button — dev only */}
+        {import.meta.env.DEV && (
+          <motion.button
+            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
+            onClick={() => {
+              console.log('[TEST] isSpeaking → true')
+              setIsSpeaking(true)
+              isSpeakingRef.current = true
+              setTimeout(() => {
+                console.log('[TEST] isSpeaking → false')
+                setIsSpeaking(false)
+                isSpeakingRef.current = false
+              }, 4000)
+            }}
+            style={{
+              ...softPill('rgba(220,252,231,0.97)', '0 4px 16px rgba(110,231,183,0.25)'),
+              cursor: 'pointer', border: '2px solid rgba(110,231,183,0.8)',
+              fontFamily: 'inherit', padding: '6px 12px',
+            }}
+          >
+            <span style={{ fontSize: 16 }}>🗣️</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#065f46' }}>Test Speak</span>
+          </motion.button>
+        )}
 
         {/* Start / Stop */}
         {(sessionState === 'idle' || sessionState === 'stopped') && (
@@ -641,9 +685,9 @@ const MimiChat = () => {
           transition={{ duration: 2.5, repeat: Infinity }}
           style={{
             ...softPill(
-              sessionState === 'running'   ? 'rgba(209,250,229,0.97)' :
-              sessionState === 'detecting' ? 'rgba(254,249,195,0.97)' :
-                                             'rgba(243,244,246,0.97)',
+              sessionState === 'running' ? 'rgba(209,250,229,0.97)' :
+                sessionState === 'detecting' ? 'rgba(254,249,195,0.97)' :
+                  'rgba(243,244,246,0.97)',
               '0 4px 16px rgba(0,0,0,0.08)'
             ),
             padding: '6px 10px',
@@ -657,9 +701,9 @@ const MimiChat = () => {
             {sessionState === 'running' ? '🟢' : sessionState === 'detecting' ? '🟡' : '⚪'}
           </motion.span>
           <span style={{ fontSize: 11, fontWeight: 700, color: P.dark }}>
-            {sessionState === 'idle'      ? 'Ready'     :
-             sessionState === 'detecting' ? 'Looking…'  :
-             sessionState === 'running'   ? 'Playing!'  : 'Done!'}
+            {sessionState === 'idle' ? 'Ready' :
+              sessionState === 'detecting' ? 'Looking…' :
+                sessionState === 'running' ? 'Playing!' : 'Done!'}
           </span>
         </motion.div>
       </div>
@@ -711,9 +755,9 @@ const MimiChat = () => {
 
                 {/* Corner accents */}
                 {[
-                  { top: 8, left: 8,   borderTop: '2.5px solid #a78bfa', borderLeft: '2.5px solid #a78bfa' },
-                  { top: 8, right: 8,  borderTop: '2.5px solid #a78bfa', borderRight: '2.5px solid #a78bfa' },
-                  { bottom: 8, left: 8,  borderBottom: '2.5px solid #a78bfa', borderLeft: '2.5px solid #a78bfa' },
+                  { top: 8, left: 8, borderTop: '2.5px solid #a78bfa', borderLeft: '2.5px solid #a78bfa' },
+                  { top: 8, right: 8, borderTop: '2.5px solid #a78bfa', borderRight: '2.5px solid #a78bfa' },
+                  { bottom: 8, left: 8, borderBottom: '2.5px solid #a78bfa', borderLeft: '2.5px solid #a78bfa' },
                   { bottom: 8, right: 8, borderBottom: '2.5px solid #a78bfa', borderRight: '2.5px solid #a78bfa' },
                 ].map((st, i) => (
                   <div key={i} style={{ position: 'absolute', width: 18, height: 18, borderRadius: 3, ...st }} />
@@ -794,7 +838,7 @@ const MimiChat = () => {
               }}
             >
               {/* Confetti sparkles */}
-              {['⭐','✨','🌟','🎊','💫'].map((e, i) => (
+              {['⭐', '✨', '🌟', '🎊', '💫'].map((e, i) => (
                 <motion.div key={i}
                   initial={{ y: 0, opacity: 0, x: 0 }}
                   animate={{ y: [-20, -70], opacity: [0, 1, 0], x: (i - 2) * 22 }}
@@ -1026,36 +1070,9 @@ const MimiChat = () => {
           </AnimatePresence>
         </div>
 
-        {/* Bottom row: avatar + listening indicator */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', flexShrink: 0 }}>
-
-          {/* Mimi avatar */}
-          {/*
-            ── TODO: Replace video below with MimiCharacter when Live2D design is ready ──
-            Steps to restore:
-              1. Uncomment MimiCharacter import at top of file
-              2. Uncomment live2dRef and live2dStateRef in the Refs section
-              3. Replace the <video> block below with:
-                 <div style={{ position: 'relative', flexShrink: 0, width: 'clamp(130px, 30vw, 400px)', height: 'clamp(160px, 37vw, 490px)' }}>
-                   <MimiCharacter
-                     modelRef={live2dRef}
-                     stateRef={live2dStateRef}
-                     isSpeaking={isSpeaking}
-                     sessionState={sessionState}
-                   />
-                 </div>
-              4. Remove the <video> block and mimiVideo import
-          */}
-          <div style={{ position: 'relative', flexShrink: 0, width: 'clamp(130px, 30vw, 400px)', height: 'clamp(160px, 37vw, 490px)' }}>
-            <video
-              src={mimiVideo}
-              autoPlay
-              loop
-              muted
-              playsInline
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-          </div>
+        {/* Bottom row: listening indicator only — character is absolutely positioned */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', flexShrink: 0, pointerEvents: 'none' }}>
+          <div style={{ width: '420px', flexShrink: 0 }} />
 
           {/* Listening indicator */}
           <AnimatePresence>

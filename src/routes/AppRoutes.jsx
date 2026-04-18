@@ -7,6 +7,7 @@ import { Login, Register, ForgotPassword } from '../pages';
 
 // Student/TV Interface
 import MimiChat from '../pages/MimiChat';
+import MimiTest from '../pages/MimiTest';
 
 // Teacher Pages
 import TeacherDashboard from '../pages/teacher/TeacherDashboard';
@@ -55,6 +56,7 @@ const AppRoutes = () => {
       
       {/* Student/TV Interface (Mimi) */}
       <Route path="/mimi-chat" element={<ProtectedRoute element={<MimiChat />} />} />
+      <Route path="/mimi-test" element={<MimiTest />} />
       
       {/* Teacher Dashboard */}
       {/* <Route path="/teacher/*" element={<TeacherDashboard />} /> */}

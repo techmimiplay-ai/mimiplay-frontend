@@ -1,0 +1,10 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "mimi2.moc3",
+		"Textures": [
+			"mimi2.2048/texture_00.png"
+		],
+		"DisplayInfo": "mimi2.cdi3.json"
+	}
+}

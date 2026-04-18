@@ -67,9 +67,10 @@ export const BACKGROUNDS = {
 };
 
 export const OUTFITS = {
-  uniform: { key: 'uniform', label: 'School Uniform', emoji: '👔', available: true  },
-  frock:   { key: 'frock',   label: 'Colorful Frock', emoji: '👗', available: false },
-  casual:  { key: 'casual',  label: 'Casual Outfit',  emoji: '👕', available: false },
+  uniform:    { key: 'uniform',    label: 'School Uniform', emoji: '👔', available: true },
+  casual:     { key: 'casual',     label: 'Casual T-Shirt', emoji: '👕', available: true },
+  overall:    { key: 'overall',    label: 'Overall',        emoji: '🧥', available: true },
+  shirt_pant: { key: 'shirt_pant', label: 'Shirt & Pants',  emoji: '👗', available: true },
 };
 
 const STORAGE_BG      = 'mimi_bg';

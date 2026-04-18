@@ -140,40 +140,68 @@
 	"ParameterGroups": [],
 	"Parts": [
 		{
-			"Id": "mouth",
-			"Name": "mouth"
+			"Id": "Part3",
+			"Name": "outfit_uniform"
 		},
 		{
-			"Id": "eyes",
-			"Name": "eyes"
-		},
-		{
-			"Id": "hands",
-			"Name": "hands"
-		},
-		{
-			"Id": "shoes",
-			"Name": "shoes"
+			"Id": "hair",
+			"Name": "hair"
 		},
 		{
 			"Id": "eyebrow",
 			"Name": "eyebrow"
 		},
 		{
+			"Id": "eye",
+			"Name": "eye"
+		},
+		{
+			"Id": "nose",
+			"Name": "nose"
+		},
+		{
+			"Id": "mouth",
+			"Name": "mouth"
+		},
+		{
+			"Id": "cheeks",
+			"Name": "cheeks"
+		},
+		{
+			"Id": "face_base",
+			"Name": "face_base"
+		},
+		{
+			"Id": "hair_back",
+			"Name": "hair_back"
+		},
+		{
+			"Id": "head",
+			"Name": "head"
+		},
+		{
+			"Id": "outfit_overall",
+			"Name": "outfit_overall"
+		},
+		{
+			"Id": "outfit_tshirt_casual",
+			"Name": "outfit_tshirt_casual"
+		},
+		{
+			"Id": "outfit_shirt_pant",
+			"Name": "outfit_shirt_pant"
+		},
+		{
 			"Id": "arms",
 			"Name": "arms"
 		},
 		{
-			"Id": "clothes",
-			"Name": "clothes"
+			"Id": "body_base",
+			"Name": "body_base"
 		},
 		{
-			"Id": "leg",
-			"Name": "leg"
-		},
-		{
-			"Id": "extra",
-			"Name": "extra"
+			"Id": "legs",
+			"Name": "legs"
 		}
 	]
 }
