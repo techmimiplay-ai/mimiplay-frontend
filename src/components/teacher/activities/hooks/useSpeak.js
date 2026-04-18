@@ -56,7 +56,11 @@ export function useSpeak(mountedRef) {
         };
         audio.onended = () => { LOG.info('Speak', 'Ended', { totalMs: Date.now() - t0 }); cleanup(); };
         audio.onerror = cleanup;
+        audio.onplay = () => {
+          window.dispatchEvent(new Event('mimiAudioStart'));
+        };
         audio.play().catch(cleanup);
+        
       });
     } catch (e) {
       LOG.warn('Speak', '_playBase64 error', e.message);
