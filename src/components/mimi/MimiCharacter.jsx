@@ -153,7 +153,8 @@ export default function MimiCharacter({ modelRef, isSpeaking, outfit, expression
         // mouth_open is NOT used in talking — remove it from ParamMouthOpenY in Cubism
         if (s.isSpeaking) {
           // Smooth triangle wave: 0 → 1 → 0 every 400ms
-          const cycle = (now % 400) / 400
+          // const cycle = (now % 400) / 400
+          const cycle = (now % 700) / 700
           const val   = cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2
           set('ParamMouthOpenY', val)
         } else {
