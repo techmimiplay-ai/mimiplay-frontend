@@ -40,6 +40,10 @@ import mimiWaveVideo from '../../../assets/images/mimi/mimiwavehand_nobg.webm';
 import mimiHappyVideo   from '../../../assets/images/mimi/mimiwavehand_nobg.webm';
 import mimiNeutralVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
 
+import MimiCharacter from '../../mimi/MimiCharacter';
+import useMimiCustomizer from '../../../hooks/useMimiCustomizer';
+
+
 import LOG from './logger';
 import { WordCard, PictureGuessCard, CountingCard, PatternCard } from './cards/index.jsx';
 import { useSpeak }              from './hooks/useSpeak';
@@ -180,6 +184,11 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const [phase,          setPhase]          = useState('waiting');
   const [studentName,    setStudentName]    = useState('');
   const [mimiVideo,      setMimiVideo]      = useState(mimiIdleVideo);
+  const [isSpeaking, setIsSpeaking]         = useState(false);
+
+  // Customizer hook — for outfit and background 
+  const { selectedClothes }                 = useMimiCustomizer();
+
   const [current,        setCurrent]        = useState(0);
   const [correct,        setCorrect]        = useState(0);
   const [transcript,     setTranscript]     = useState('');
@@ -217,6 +226,25 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
   /* ── Hooks ─────────────────────────────────────────────────── */
   const { speak, cancelSpeech, prefetchTTS, clearPrefetch } = useSpeak(mountedRef);
+
+  // Wrapped speak — set isSpeaking for talking animation 
+  const speakWithAnim = useCallback(async (text) => {
+    if (!text || !mountedRef.current) return;
+    setIsSpeaking(false); // pehle reset karo — koi purana state saaf karo
+
+    // speak() ke andar audio play hone ka signal chahiye
+    // isliye hum Audio ka onplay event pakdenge via window event
+    const onAudioStart = () => setIsSpeaking(true);
+    window.addEventListener('mimiAudioStart', onAudioStart, { once: true });
+
+    try {
+      await speak(text);
+    } finally {
+      window.removeEventListener('mimiAudioStart', onAudioStart);
+      if (mountedRef.current) setIsSpeaking(false);
+    }
+  }, [speak, mountedRef]);
+
 
   const { startCameraPoll, stopCamera, resetRecognized, pollRef, cameraStreamRef } =
     useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef });
@@ -376,7 +404,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     prefetchTTS(firstMsg, 'q0');
 
     // Wait for greeting TTS to fully finish before advancing — prevents overlap
-    speak(msg).catch(() => {}).finally(() => {
+    speakWithAnim(msg).catch(() => {}).finally(() => {
       if (mountedRef.current) setPhase('asking');
     });
   }, [phase]); // eslint-disable-line
@@ -410,7 +438,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     }
 
     let cancelled = false;
-    speak(msg).finally(() => {
+    speakWithAnim(msg).finally(() => {
       if (!cancelled && mountedRef.current) {
         setTimeout(() => { if (!cancelled && mountedRef.current) setPhase('listening'); }, 300);
       }
@@ -537,7 +565,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setPhase('result');
     clearTimeout(resultTimerRef.current);
 
-    try { await speak(feedback); } catch (e) { LOG.warn('Result', 'speak error', e.message); }
+    try { await speakWithAnim(feedback); } catch (e) { LOG.warn('Result', 'speak error', e.message); }
 
     if (sessionEndedRef.current) return;
     if (currentRef.current + 1 < total) {
@@ -564,7 +592,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       : `Well done ${studentName}! You earned ${earned} star${earned !== 1 ? 's' : ''}! 🎉`;
 
     setMimiSaying(displayMsg);
-    if (!skipTransition) speak(spokenMsg).catch(() => {});
+    if (!skipTransition) speakWithAnim(spokenMsg).catch(() => {});
 
     seenRef.current.add(studentName.toLowerCase());
     onStudentDone({ stars: earned, score, correct: fc, total, studentName });
@@ -643,7 +671,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     cancelSpeech(); stopCamera(); clearPrefetch();
     intentionalStopRef.current = true;
     axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => {});
-    if (studentName) speak(`Well done ${studentName}!`);
+    if (studentName) speakWithAnim(`Well done ${studentName}!`);
     if (studentName && !['waiting', 'between_students', 'done'].includes(phaseRef.current))
       finishStudent(correctRef.current, true, true);
     setSessionEnded(true);
@@ -973,7 +1001,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       )}
 
       {/* Mimi character — right side, never overlaps left-aligned controls */}
-      <div className="absolute bottom-0 right-0 sm:right-[2%] z-10 pointer-events-none">
+      {/* <div className="absolute bottom-0 right-0 sm:right-[2%] z-10 pointer-events-none">
         <motion.div key={mimiVideo} initial={{ scale: 0.9, opacity: 0, y: 30 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           transition={{ type: 'spring', damping: 18, stiffness: 120 }}
@@ -981,7 +1009,31 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
           <video key={mimiVideo} src={mimiVideo} autoPlay loop muted playsInline
             className="w-full h-full object-contain" style={{ background: 'transparent' }} />
         </motion.div>
+      </div> */}
+      {/* Mimi character — right side, Live2D animated */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: '420px',
+          height: '100vh',
+          zIndex: 10,
+          pointerEvents: 'none',
+        }}
+      >
+        <MimiCharacter
+          isSpeaking={isSpeaking}   // 🔊 Real-time talking animation!
+          outfit={selectedClothes || 'uniform'}
+          expression={
+            phase === 'done' && starsEarned >= 4 ? 'excited'
+            : phase === 'result' && isCorrect ? 'happy'
+            : phase === 'result' && !isCorrect ? 'sad'
+            : 'neutral'
+          }
+        />
       </div>
+
     </div>
   );
 }

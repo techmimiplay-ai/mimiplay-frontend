@@ -553,12 +553,13 @@ const MimiChat = () => {
       {/* Character — absolutely pinned to bottom-left */}
       <div style={{
         position: 'absolute',
-        bottom: '-19%',     // 👈 slight negative to "sink" feet
-        left: '30px',
+        bottom: 0,     // 👈 slight negative to "sink" feet
+        left: 0,
         width: '480px',
-        height: 'auto',      // 👈 don't force height
+        height: '100vh',      // 👈 don't force height
         zIndex: 3,
         pointerEvents: 'none',
+        overflow: 'hidden',
       }}>
         <MimiCharacter
           modelRef={live2dRef}
