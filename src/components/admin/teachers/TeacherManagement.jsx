@@ -99,7 +99,8 @@ const TeacherManagement = () => {
 
   const handleAddTeacher = async () => {
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/admin/add-teacher`, formData, { headers: getAuthHeaders() });
+      const payload = { ...formData, email: formData.email.toLowerCase() };
+      const res = await axios.post(`${API_BASE_URL}/api/admin/add-teacher`, payload, { headers: getAuthHeaders() });
       const data = res.data;
       const newTeacher = { ...formData, school: formData.school || 'N/A', class: formData.class || 'N/A', students: 0, status: 'pending', joinedDate: new Date().toLocaleDateString(), lastActive: 'Just now' };
       setTeachers(prev => [newTeacher, ...prev]);
@@ -113,7 +114,8 @@ const TeacherManagement = () => {
 
   const handleUpdateTeacher = async () => {
     try {
-      await axios.put(`${API_BASE_URL}/api/admin/edit-teacher/${editData.id}`, editData, { headers: getAuthHeaders() });
+      const payload = { ...editData, email: editData.email.toLowerCase() };
+      await axios.put(`${API_BASE_URL}/api/admin/edit-teacher/${editData.id}`, payload, { headers: getAuthHeaders() });
       toast('Teacher updated successfully', 'success');
       setTeachers(prev => prev.map(t => t.id === editData.id ? editData : t));
       setShowEditModal(false);

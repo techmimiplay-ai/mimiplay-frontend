@@ -66,7 +66,7 @@ const Login = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.toLowerCase(),
           password: formData.password,
         }),
       });
@@ -85,7 +85,8 @@ const Login = () => {
       else if (data.role === "parent") navigate("/parent-selection");
 
     } catch (err) {
-      setErrors({ email: err.message });
+      console.error("[Login] Exception:", err);
+      setErrors({ general: err.message || "Something went wrong. Please check your connection." });
     } finally {
       setLoading(false);
     }
@@ -97,6 +98,23 @@ const Login = () => {
       subtitle="Sign in to continue to Alexi"
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        
+        {/* General Error Message */}
+        {errors.general && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-start gap-3"
+          >
+            <div className="text-red-500 mt-0.5">
+              <Lock size={18} />
+            </div>
+            <p className="text-sm text-red-800 font-medium">
+              {errors.general}
+            </p>
+          </motion.div>
+        )}
+
 
         {/* Email Input */}
         <Input

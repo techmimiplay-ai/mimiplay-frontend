@@ -34,12 +34,12 @@ const clean = (t) => (t || '').toLowerCase().replace(/[^a-z\s]/g, '').trim()
 const checkForWakeWord = (t) => {
   const l = clean(t)
   return ['hey alexi', 'hey alexa', 'hi alexi', 'hi alexa', 'hello alexi', 'hello alexa',
-    'okay alexi', 'ok alexi', 'okay alexa', 'ok alexa'].some(w => l.includes(w))
+    'okay alexi', 'ok alexi', 'okay alexa', 'ok alexa', 'lexi', 'alexis', 'alexi', 'alexy', 'galaxy'].some(w => l.includes(w))
 }
 const checkForByeWord = (t) => {
   const l = clean(t)
   return ['bye alexi', 'bye alexa', 'goodbye alexi', 'goodbye alexa', 'stop alexi',
-    'stop alexa', 'alexi stop', 'alexa stop', 'exit alexi', 'exit alexa'].some(w => l.includes(w))
+    'stop alexa', 'alexi stop', 'alexa stop', 'exit alexi', 'exit alexa', 'bye alexy', 'bye alexis', 'bye galaxy'].some(w => l.includes(w))
 }
 const checkForPlayVideoCommand = (t) => {
   const l = clean(t)
@@ -441,6 +441,7 @@ const MimiChat = () => {
       setMimiText(responseText)
       setImageUrl(res.data.data?.image_url || res.data.image_url || null)
       setYtVideo(res.data.data?.yt_video || res.data.yt_video || null)
+      setYtPlaying(false) // Always reset to non-playing for new videos
       if (responseAudio) {
         playBase64Audio(responseAudio, () => { log('AUDIO_SEND', '✓ audio done'); setAiPhaseSync('listening') })
       } else {
@@ -555,7 +556,7 @@ const MimiChat = () => {
         position: 'absolute',
         bottom: 0,     // 👈 slight negative to "sink" feet
         left: 0,
-        width: '480px',
+        width: '380px',
         height: '100vh',      // 👈 don't force height
         zIndex: 3,
         pointerEvents: 'none',

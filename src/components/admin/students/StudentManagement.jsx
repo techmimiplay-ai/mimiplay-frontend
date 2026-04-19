@@ -161,7 +161,8 @@ const StudentManagement = () => {
             const response = await axios.post(`${API_BASE_URL}/api/admin/add-student`, {
                     name: formData.studentName, class: formData.studentClass,
                     parentName: selectedParentObj ? selectedParentObj.name : '',
-                    parent_id: formData.parentName, email: formData.email,
+                    parent_id: formData.parentName, 
+                    email: formData.email.toLowerCase(),
                     phone: formData.phone, rollNumber: formData.rollNumber
                 }, { headers: getAuthHeaders() });
 
@@ -225,7 +226,9 @@ const StudentManagement = () => {
             const res = await axios.put(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
                 name: editData.studentName, class: editData.studentClass,
                 parentName: selectedParentObj ? selectedParentObj.name : editData.parentName,
-                parent_id: editData.parentId, email: editData.email, phone: editData.phone
+                parent_id: editData.parentId, 
+                email: editData.email.toLowerCase(), 
+                phone: editData.phone
             }, { headers: getAuthHeaders() });
 
             if (!res.data) { toast('Update failed', 'error'); return; }

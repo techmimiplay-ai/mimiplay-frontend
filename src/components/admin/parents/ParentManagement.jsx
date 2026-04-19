@@ -104,9 +104,10 @@ const ParentManagement = () => {
 
   const handleUpdateParent = async () => {
     try {
+      const payload = { ...editForm, email: editForm.email?.toLowerCase() };
       const res = await axios.put(
         `${API_BASE_URL}/api/admin/edit-parent/${editForm.id}`,
-        editForm
+        payload
       );
       toast(res.data.msg || 'Parent updated successfully', 'success');
       setShowEditModal(false);

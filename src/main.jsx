@@ -46,10 +46,12 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    if (status === 401 || status === 403) {
+    if ((status === 401 || status === 403) && !isPublicApiRequest(error.config?.url)) {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -73,10 +75,12 @@ window.fetch = (input, init = {}) => {
   }
 
   return originalFetch(input, init).then(response => {
-    if (response.status === 401 || response.status === 403) {
+    if ((response.status === 401 || response.status === 403) && !isPublicApiRequest(url)) {
       localStorage.removeItem('token');
       localStorage.removeItem('role');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return response;
   });

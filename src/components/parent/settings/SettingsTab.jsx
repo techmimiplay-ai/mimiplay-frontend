@@ -326,7 +326,7 @@ const SettingsTab = () => {
         `${API_BASE_URL}/api/parent/profile?parent_id=${parentId}`,
         {
           name:       formData.name,
-          email:      formData.email,
+          email:      formData.email.toLowerCase(),
           phone:      formData.phone,
           occupation: formData.occupation,
         }

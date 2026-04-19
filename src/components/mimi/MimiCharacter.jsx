@@ -66,7 +66,7 @@ export default function MimiCharacter({ modelRef, isSpeaking, outfit, expression
       app.stage.addChild(model)
 
       // Scale to fit container height
-      const scale = (H * 0.75) / 3000
+      const scale = (H * 0.55) / 3000
       model.scale.set(scale)
       model.anchor.set(0.5, 1)
       model.x = W / 2

@@ -66,7 +66,7 @@ const SettingsTab = () => {
     try {
       await axios.put(
         `${API_BASE_URL}/api/teacher/profile?teacher_id=${teacherId}`,
-        profileData
+        { ...profileData, email: profileData.email.toLowerCase() }
       );
       showMsg('✅ Profile updated successfully!');
     } catch (err) {

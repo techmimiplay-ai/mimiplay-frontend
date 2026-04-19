@@ -16,6 +16,8 @@ const Register = () => {
     school: '',
     password: '',
     confirmPassword: '',
+    childName: '',
+    rollNumber: '',
     agreeToTerms: false
   });
   const [errors, setErrors] = useState({});
@@ -65,6 +67,15 @@ const Register = () => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
     
+    if (formData.role === 'parent') {
+      if (!formData.childName) {
+        newErrors.childName = 'Child name is required';
+      }
+      if (!formData.rollNumber) {
+        newErrors.rollNumber = 'Student roll number is required';
+      }
+    }
+
     if (!formData.agreeToTerms) {
       newErrors.agreeToTerms = 'You must agree to the terms';
     }
@@ -96,7 +107,10 @@ const Register = () => {
       const res = await fetch(`${API_BASE_URL}/api/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          email: formData.email.toLowerCase()
+        }),
       });
 
       const data = await res.json();
@@ -203,6 +217,37 @@ const Register = () => {
             error={errors.school}
           />
         )}
+
+        {/* Child Info (only for parents) */}
+        {formData.role === 'parent' && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="space-y-4"
+          >
+            <Input
+              label="Child's Full Name"
+              type="text"
+              name="childName"
+              placeholder="Enter student's full name"
+              icon={User}
+              value={formData.childName}
+              onChange={handleChange}
+              error={errors.childName}
+            />
+            <Input
+              label="Student Roll Number"
+              type="text"
+              name="rollNumber"
+              placeholder="Enter student's roll number"
+              icon={Building2}
+              value={formData.rollNumber}
+              onChange={handleChange}
+              error={errors.rollNumber}
+            />
+          </motion.div>
+        )}
+
         
         {/* Password */}
         <Input
