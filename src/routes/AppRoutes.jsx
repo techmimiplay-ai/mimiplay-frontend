@@ -3,20 +3,19 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from '../components/shared/ErrorBoundary';
 
 // Auth Pages
-import { Login, Register, ForgotPassword } from '../pages';
+import { Login, Register, ForgotPassword, ResetPassword } from '../pages';
 
-// Student/TV Interface
-import MimiChat from '../pages/MimiChat';
-import MimiTest from '../pages/MimiTest';
+// Shared screens — all roles
+import SelectionScreen  from '../pages/SelectionScreen';
+import MimiChat         from '../pages/MimiChat';
+import ActivitiesScreen from '../pages/ActivitiesScreen';
+
 
 // Teacher Pages
 import TeacherDashboard from '../pages/teacher/TeacherDashboard';
-import TeacherSelection from '../pages/teacher/TeacherSelection';
 
 // Parent Pages
-import ParentPortal from '../pages/parent/ParentPortal';
-import ParentSelection from '../pages/parent/ParentSelection';
-import ParentActivities  from '../pages/parent/ParentActivities';
+import ParentPortal  from '../pages/parent/ParentPortal';
 
 // Admin Pages
 import AdminPanel from '../pages/admin/AdminPanel';
@@ -31,11 +30,26 @@ const ProtectedRoute = ({ element, allowedRoles }) => {
   if (!token) return <Navigate to="/login" replace />;
 
   if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(role)) {
-    // Redirect to the user's own portal instead of login
     const home = role === 'teacher' ? '/teacher/home'
                : role === 'parent'  ? '/parent/home'
                : role === 'admin'   ? '/admin/dashboard'
                : '/login';
+    return <Navigate to={home} replace />;
+  }
+
+  return element;
+};
+
+// Redirects logged-in users away from auth pages back to their portal
+const PublicRoute = ({ element }) => {
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+
+  if (token) {
+    const home = role === 'teacher' ? '/teacher/home'
+               : role === 'parent'  ? '/parent/home'
+               : role === 'admin'   ? '/admin/dashboard'
+               : '/select';
     return <Navigate to={home} replace />;
   }
 
@@ -48,37 +62,34 @@ const AppRoutes = () => {
       <Routes>
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/login" replace />} />
-      
-      {/* Auth Routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/forgot-password" element={<ForgotPassword />} />
-      
-      {/* Student/TV Interface (Mimi) */}
-      <Route path="/mimi-chat" element={<ProtectedRoute element={<MimiChat />} />} />
-      <Route path="/mimi-test" element={<MimiTest />} />
-      
-      {/* Teacher Dashboard */}
-      {/* <Route path="/teacher/*" element={<TeacherDashboard />} /> */}
-      {/* <Route path="/teacher/selection" element={<TeacherSelection />} /> */}
-      <Route path="/teacher/*"         element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={['teacher', 'admin']} />} />
-      <Route path="/teacher/selection" element={<ProtectedRoute element={<TeacherSelection />} allowedRoles={['teacher', 'admin']} />} />
-      
-      {/* Parent Portal */}
-      {/* <Route path="/parent/*" element={<ParentPortal />} />
-      <Route path="/parent-selection" element={<ParentSelection />} />
-      <Route path="/parent/activities" element={<ParentActivities />} /> */}
-       <Route path="/parent/*"          element={<ProtectedRoute element={<ParentPortal />}    allowedRoles={['parent']} />} />
-      <Route path="/parent-selection"  element={<ProtectedRoute element={<ParentSelection />} allowedRoles={['parent']} />} />
-      <Route path="/parent/activities" element={<ProtectedRoute element={<ParentActivities />} allowedRoles={['parent']} />} />
 
-      
+      {/* Auth Routes — redirect to portal if already logged in */}
+      <Route path="/login"           element={<PublicRoute element={<Login />} />} />
+      <Route path="/register"        element={<PublicRoute element={<Register />} />} />
+      <Route path="/forgot-password" element={<PublicRoute element={<ForgotPassword />} />} />
+      <Route path="/reset-password"  element={<PublicRoute element={<ResetPassword />} />} />
+
+      {/* ── Shared screens — teacher + parent + admin ── */}
+      <Route path="/select"      element={<ProtectedRoute element={<SelectionScreen />}  allowedRoles={['teacher','parent','admin']} />} />
+      <Route path="/chat"        element={<ProtectedRoute element={<MimiChat />}         allowedRoles={['teacher','parent','admin']} />} />
+      <Route path="/activities"  element={<ProtectedRoute element={<ActivitiesScreen />} allowedRoles={['teacher','parent','admin']} />} />
+
+      {/* Legacy paths — redirect to unified routes so old bookmarks still work */}
+      <Route path="/teacher/selection" element={<ProtectedRoute element={<Navigate to="/select" replace />}     allowedRoles={['teacher','admin']} />} />
+      <Route path="/parent-selection"  element={<ProtectedRoute element={<Navigate to="/select" replace />}     allowedRoles={['parent','admin']} />} />
+      <Route path="/mimi-chat"         element={<ProtectedRoute element={<Navigate to="/chat" replace />}        allowedRoles={['teacher','parent','admin']} />} />
+
+
+      {/* Teacher Dashboard */}
+      <Route path="/teacher/*" element={<ProtectedRoute element={<TeacherDashboard />} allowedRoles={['teacher','admin']} />} />
+
+      {/* Parent Portal */}
+      <Route path="/parent/*" element={<ProtectedRoute element={<ParentPortal />} allowedRoles={['parent','admin']} />} />
+
       {/* Admin Panel */}
-      {/* <Route path="/admin/*" element={<AdminPanel />} /> */}
       <Route path="/admin/*" element={<ProtectedRoute element={<AdminPanel />} allowedRoles={['admin']} />} />
 
-      
-      {/* 404 Not Found */}
+      {/* 404 */}
       <Route path="*" element={<NotFound />} />
       </Routes>
     </ErrorBoundary>

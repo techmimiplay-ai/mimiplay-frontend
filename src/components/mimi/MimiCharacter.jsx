@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { getDefaultDress } from '../../utils/mimiDefaults'
 
 const ALL_OUTFITS = [
   'Part3',
@@ -66,7 +67,7 @@ export default function MimiCharacter({ modelRef, isSpeaking, outfit, expression
       app.stage.addChild(model)
 
       // Scale to fit container height
-      const scale = (H * 0.55) / 3000
+      const scale = (H * 0.75) / 3000
       model.scale.set(scale)
       model.anchor.set(0.5, 1)
       model.x = W / 2
@@ -179,11 +180,11 @@ export default function MimiCharacter({ modelRef, isSpeaking, outfit, expression
 
       // ── Initial state ──────────────────────────────────────────────────
       const s      = stateRef.current
-      s.outfit     = outfit
-      s.lastOutfit = outfit
+      s.outfit     = outfit || getDefaultDress()  // Default to overall if no outfit specified
+      s.lastOutfit = s.outfit
       s.nextBlink  = Date.now() + 2000
 
-      const activeOutfit = OUTFIT_MAP[outfit] || 'outfit_overall'
+      const activeOutfit = OUTFIT_MAP[s.outfit] || 'outfit_overall'
       ALL_OUTFITS.forEach(id => {
         coreModel.setPartOpacityById(id, id === activeOutfit ? 1 : 0)
       })

@@ -8,12 +8,16 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { motion, AnimatePresence } from 'framer-motion'
 import { API_ENDPOINTS } from '../config'
+import { useLocation } from 'react-router-dom'
+import { resolveOutfit } from '../utils/mimiDefaults'
+import { handleError } from '../utils/errorHandler'
+import { showToast, apiToast } from '../utils/toast.jsx'
 
-// import bgImage       from '../assets/images/mimi/bg.jpg'
 import useMimiCustomizer from '../hooks/useMimiCustomizer'
 import MimiCustomizer from '../components/mimi/MimiCustomizer'
 import MimiCharacter from '../components/mimi/MimiCharacter'
-// import mimiVideo from '../assets/images/mimi/mimiwavehand_nobg.webm'
+import VideoRecorder from '../components/common/VideoRecorder'
+import { useAutoVideoRecording } from '../hooks/useAutoVideoRecording'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Logging — dev only, silent in production
@@ -38,8 +42,10 @@ const checkForWakeWord = (t) => {
 }
 const checkForByeWord = (t) => {
   const l = clean(t)
-  return ['bye alexi', 'bye alexa', 'goodbye alexi', 'goodbye alexa', 'stop alexi',
-    'stop alexa', 'alexi stop', 'alexa stop', 'exit alexi', 'exit alexa', 'bye alexy', 'bye alexis', 'bye galaxy'].some(w => l.includes(w))
+  // Requires explicit farewell TO Alexi — prevents accidental session end
+  return ['bye bye alexi', 'bye bye alexa', 'goodbye alexi', 'goodbye alexa',
+    'stop alexi', 'stop alexa', 'alexi stop', 'alexa stop',
+    'exit alexi', 'exit alexa', 'bye alexy', 'bye alexis'].some(w => l.includes(w))
 }
 const checkForPlayVideoCommand = (t) => {
   const l = clean(t)
@@ -133,11 +139,25 @@ const softPill = (bg, shadow) => ({
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 const MimiChat = () => {
+  const location = useLocation()
+  const mode        = location.state?.mode || localStorage.getItem('role') || 'teacher'
+  const isAdminMode = mode === 'admin'
+  const isTeacherMode = mode === 'teacher' || mode === 'admin'
 
   // ── State ─────────────────────────────────────────────────────────────────
   const [sessionState, setSessionState] = useState('idle')
   const [studentName, setStudentName] = useState('')
   const [studentId, setStudentId] = useState('')
+  
+  // Auto video recording for teachers and parents (not admins)
+  const { isAutoRecording, canAutoRecord } = useAutoVideoRecording({
+    sessionState,
+    studentId,
+    studentName,
+    sessionType: 'chat',
+    mode, // Pass mode instead of isTeacherMode
+    autoSendToParent: true
+  });
   const [sessionId, setSessionId] = useState('')
   const [aiPhase, setAiPhase] = useState('listening')
 
@@ -159,6 +179,7 @@ const MimiChat = () => {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const facePollingRef = useRef(null)
+  const faceAbortRef   = useRef(null) // aborts in-flight process-frame request
   const mediaRecorderRef = useRef(null)
   const chatHistoryRef = useRef([])
   const sessionStateRef = useRef('idle')
@@ -242,7 +263,7 @@ const MimiChat = () => {
       if (videoRef.current) { videoRef.current.srcObject = stream; setWebcamActive(true) }
     } catch (err) {
       log('WEBCAM', 'error', err)
-      showError('Camera access needed 📷')
+      showToast.warning('Camera access needed 📷')
     }
   }
 
@@ -262,11 +283,11 @@ const MimiChat = () => {
     return () => clearInterval(t)
   }, [mimiText])
 
-  // ── Answer timer — clears response panel after Alexi finishes speaking+typing
+  // ── Answer timer — 30s then manual dismiss, never auto-clears while speaking/typing
   useEffect(() => {
     if (!mimiText || isSpeaking || isTyping) { setAnswerTimer(0); return }
     if (aiPhase !== 'responding' && aiPhase !== 'listening') { setAnswerTimer(0); return }
-    setAnswerTimer(8)
+    setAnswerTimer(30)
     const iv = setInterval(() => {
       setAnswerTimer(prev => {
         if (prev <= 1) {
@@ -289,6 +310,16 @@ const MimiChat = () => {
     setAnswerTimer(0)
   }, [ytPlaying])
 
+  // ── Admin test mode: auto-start session without face detection ──────────
+  useEffect(() => {
+    if (!isAdminMode) return
+    const sid = generateSessionId()
+    setSessionId(sid); sessionIdRef.current = sid
+    setStudentName('Admin Test'); studentNameRef.current = 'Admin Test'
+    setSessionState('running')
+    setAiPhaseSync('listening')
+  }, []) // eslint-disable-line
+
   // ── Face detection ────────────────────────────────────────────────────────
   const startFaceDetection = useCallback(async () => {
     log('FACE', 'startFaceDetection')
@@ -302,12 +333,17 @@ const MimiChat = () => {
     await startWebcam()
     facePollingRef.current = setInterval(async () => {
       if (!videoRef.current?.srcObject || !canvasRef.current) return
+      // Abort previous in-flight request before sending a new one
+      if (faceAbortRef.current) faceAbortRef.current.abort()
+      faceAbortRef.current = new AbortController()
       try {
-        const canvas = canvasRef.current, video = videoRef.current
-        canvas.width = 320; canvas.height = 240
-        canvas.getContext('2d').drawImage(video, 0, 0, 320, 240)
-        const base64 = canvas.toDataURL('image/jpeg', 0.7)
-        const res = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 })
+        const res = await apiToast.operation(
+          () => axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 }, { signal: faceAbortRef.current.signal }),
+          {
+            loading: 'Detecting face...',
+            error: 'Face detection failed'
+          }
+        )
         log('FACE', `person="${res.data.person}"`)
         if (res.data.person) {
           const name = res.data.person.replace(/_/g, ' ').trim()
@@ -317,7 +353,11 @@ const MimiChat = () => {
           studentIdRef.current = sid
           startMimiSessionRef.current?.(name, sid)
         }
-      } catch (e) { log('FACE', 'PROCESS_FRAME error', e.message) }
+      } catch (e) {
+        // Ignore abort errors — expected when a new tick cancels the previous request
+        if (axios.isCancel(e) || e?.name === 'CanceledError' || e?.name === 'AbortError') return
+        log('FACE', 'PROCESS_FRAME error', e.message)
+      }
     }, 1200)
   }, [stopWebcam])
 
@@ -352,7 +392,14 @@ const MimiChat = () => {
     setStudentId(resolvedId); studentIdRef.current = resolvedId
 
     try {
-      const res = await axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: resolvedId, session_id: sid })
+      const res = await apiToast.operation(
+        () => axios.post(API_ENDPOINTS.START_MIMI_SESSION, { student_name: name, student_id: resolvedId, session_id: sid }),
+        {
+          loading: 'Starting session...',
+          success: 'Session started successfully!',
+          error: 'Failed to start session'
+        }
+      )
       const greetingText = res.data.greeting_text
       const greetingAudio = res.data.greeting_audio
       log('SESSION', 'Greeting received', { greetingText })
@@ -365,7 +412,7 @@ const MimiChat = () => {
       else afterGreeting()
     } catch (e) {
       log('SESSION', 'START_MIMI_SESSION failed', e.message)
-      showError('Oops! Please try again 😊')
+      showToast.error('Oops! Please try again 😊')
       greetingActiveRef.current = false; setAiPhaseSync('listening')
       setSessionState('idle')
     }
@@ -380,17 +427,18 @@ const MimiChat = () => {
     greetingActiveRef.current = false; stopWebcam()
     isSpeakingRef.current = false; setIsSpeaking(false)
     setAiPhaseSync('listening'); clearResponse()
-    try { await axios.post(API_ENDPOINTS.MIMI_STOP_SESSION, { session_id: sessionIdRef.current }) }
+    
+    // Stop session and send WhatsApp chat history
+    try { 
+      await axios.post(API_ENDPOINTS.MIMI_STOP_SESSION, { 
+        session_id: sessionIdRef.current,
+        student_name: studentNameRef.current,
+        send_whatsapp: true
+      }) 
+    }
     catch (e) { log('SESSION', 'stop error', e.message) }
-    try {
-      const res = await axios.get(API_ENDPOINTS.MIMI_CHAT_HISTORY, {
-        params: { student_name: studentNameRef.current, session_id: sessionIdRef.current }
-      })
-      if (!isMountedRef.current) return
-      const chats = res.data?.chats || []
-      const msgs = chats.flatMap(doc => doc.messages || [])
-      setChatHistory(msgs.length > 0 ? msgs : chatHistoryRef.current)
-    } catch (e) { if (isMountedRef.current) setChatHistory(chatHistoryRef.current) }
+    
+    if (isMountedRef.current) setChatHistory(chatHistoryRef.current)
     if (!isMountedRef.current) return
     setSessionState('stopped'); chatHistoryRef.current = []
   }, [stopWebcam, clearResponse])
@@ -409,7 +457,13 @@ const MimiChat = () => {
     formData.append('student_name', studentNameRef.current)
     formData.append('session_id', sessionIdRef.current)
     try {
-      const res = await axios.post(endpoint, formData)
+      const res = await apiToast.operation(
+        () => axios.post(endpoint, formData),
+        {
+          loading: 'Processing audio...',
+          error: 'Failed to process audio'
+        }
+      )
       log('AUDIO_SEND', 'top-level keys:', Object.keys(res.data))
       if (res.data.data) log('AUDIO_SEND', 'data.* keys:', Object.keys(res.data.data))
       consecutiveFailsRef.current = 0
@@ -431,12 +485,15 @@ const MimiChat = () => {
       const responseAudio = res.data.data?.audio || res.data.audio || null
       log('AUDIO_SEND', `answer — data.text="${(res.data.data?.text || '').slice(0, 60)}"`)
       log('AUDIO_SEND', `✓ using: "${responseText.slice(0, 80)}" | audio=${!!responseAudio}`)
-      axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
-        student_name: studentNameRef.current, student_id: studentIdRef.current,
-        session_id: sessionIdRef.current,
-        question: transcribed, answer: responseText,
-        image_url: res.data.data?.image_url || res.data.image_url || '',
-      }).catch(e => log('AUDIO_SEND', 'SAVE_CHAT error', e.message))
+      // Admin test mode — skip all DB saves
+      if (!isAdminMode) {
+        axios.post(API_ENDPOINTS.MIMI_SAVE_CHAT, {
+          student_name: studentNameRef.current, student_id: studentIdRef.current,
+          session_id: sessionIdRef.current,
+          question: transcribed, answer: responseText,
+          image_url: res.data.data?.image_url || res.data.image_url || '',
+        }).catch(e => log('AUDIO_SEND', 'SAVE_CHAT error', e.message))
+      }
       setAiPhaseSync('responding')
       setMimiText(responseText)
       setImageUrl(res.data.data?.image_url || res.data.image_url || null)
@@ -496,13 +553,68 @@ const MimiChat = () => {
         await sendAudioToBackend(blob)
       }
       mediaRecorderRef.current = recorder
-      recorder.start()
-      log('MIC', 'recording started — will stop in 4000ms')
-      setTimeout(() => { if (recorder.state === 'recording') { log('MIC', '4s timeout'); recorder.stop() } }, 4000)
+      recorder.start(250) // collect chunks every 250ms for silence detection
+
+      // ── Silence-based auto-stop ──
+      // Monitor audio levels via Web Audio API.
+      // Once speech is detected, stop after 1.5s of silence.
+      // Falls back to hard 15s timeout if Web Audio is unavailable.
+      let speechDetected = false
+      let silenceStart = null
+      const SILENCE_THRESHOLD = 0.012  // RMS below this = silence
+      const SILENCE_DURATION  = 1500   // ms of silence after speech before stopping
+
+      let audioCtx = null
+      let silenceCheckInterval = null
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        const source   = audioCtx.createMediaStreamSource(stream)
+        const analyser = audioCtx.createAnalyser()
+        analyser.fftSize = 512
+        source.connect(analyser)
+        const buf = new Float32Array(analyser.fftSize)
+
+        silenceCheckInterval = setInterval(() => {
+          if (recorder.state !== 'recording') { clearInterval(silenceCheckInterval); return }
+          analyser.getFloatTimeDomainData(buf)
+          let sum = 0
+          for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i]
+          const rms = Math.sqrt(sum / buf.length)
+
+          if (rms > SILENCE_THRESHOLD) {
+            speechDetected = true
+            silenceStart = null  // reset silence timer on any sound
+          } else if (speechDetected) {
+            // Speech was detected before — now we're in silence
+            if (!silenceStart) silenceStart = Date.now()
+            else if (Date.now() - silenceStart >= SILENCE_DURATION) {
+              log('MIC', `silence after speech — stopping early (rms=${rms.toFixed(4)})`)
+              clearInterval(silenceCheckInterval)
+              audioCtx.close()
+              if (recorder.state === 'recording') recorder.stop()
+            }
+          }
+        }, 100)
+      } catch (e) {
+        log('MIC', 'Web Audio unavailable — using fixed timeout only', e.message)
+      }
+
+      // Hard 15s fallback — always fires in case silence detection fails
+      const hardTimeout = setTimeout(() => {
+        if (recorder.state === 'recording') {
+          log('MIC', '15s hard timeout')
+          if (silenceCheckInterval) clearInterval(silenceCheckInterval)
+          if (audioCtx) audioCtx.close()
+          recorder.stop()
+        }
+      }, 15000)
+
+      // Clean up hard timeout if recorder stops early
+      recorder.addEventListener('stop', () => clearTimeout(hardTimeout), { once: true })
     } catch (e) {
       log('MIC', 'getUserMedia error', e.message)
       isRecordingRef.current = false; setIsRecording(false)
-      showError('Microphone access needed 🎤')
+      showToast.warning('Microphone access needed 🎤')
     }
   }, [sendAudioToBackend, showError, setAiPhaseSync])
 
@@ -551,29 +663,44 @@ const MimiChat = () => {
       <canvas ref={canvasRef} style={{ display: 'none' }} />
       <MimiCustomizer />
 
-      {/* Character — absolutely pinned to bottom-left */}
+      {/* Admin test mode banner */}
+      {isAdminMode && (
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 70,
+          background: 'rgba(251,191,36,0.95)', padding: '6px 16px',
+          display: 'flex', alignItems: 'center', gap: 8,
+          borderBottom: '2px solid #f59e0b',
+        }}>
+          <span style={{ fontSize: 16 }}>🧪</span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#78350f' }}>
+            Admin Test Mode — no data is being saved
+          </span>
+        </div>
+      )}
+
+      {/* Character — much bigger, fully centered and visible */}
       <div style={{
         position: 'absolute',
-        bottom: 0,     // 👈 slight negative to "sink" feet
-        left: 0,
-        width: '380px',
-        height: '100vh',      // 👈 don't force height
+        bottom: '30vh', // More space from bottom to prevent cutoff
+        left: '70%',
+        transform: 'translateX(-50%)',
+        width: 'min(1200px, 90vw)', // Much bigger character
+        height: '75vh', // Adjusted height for better proportion
         zIndex: 3,
         pointerEvents: 'none',
-        overflow: 'hidden',
       }}>
         <MimiCharacter
           modelRef={live2dRef}
           stateRef={live2dStateRef}
           isSpeaking={isSpeaking}
-          outfit={selectedClothes || 'uniform'}
+          outfit={resolveOutfit(selectedClothes)}
         />
       </div>
 
-      {/* Soft vignette */}
+      {/* Bottom vignette to help caption bar stand out - adjusted for higher character */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.12) 0%, transparent 40%)',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 25%, transparent 45%)',
       }} />
 
 
@@ -616,8 +743,8 @@ const MimiChat = () => {
             >
               <span style={{ fontSize: 16 }}>🌸</span>
               <span style={{
-                fontSize: 12, fontWeight: 800, color: '#7c3aed',
-                maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                fontSize: 16, fontWeight: 800, color: '#7c3aed',
+                maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
               }}>
                 {studentName}
               </span>
@@ -625,33 +752,10 @@ const MimiChat = () => {
           )}
         </AnimatePresence>
 
-        {/* Test speaking button — dev only */}
-        {import.meta.env.DEV && (
-          <motion.button
-            whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
-            onClick={() => {
-              console.log('[TEST] isSpeaking → true')
-              setIsSpeaking(true)
-              isSpeakingRef.current = true
-              setTimeout(() => {
-                console.log('[TEST] isSpeaking → false')
-                setIsSpeaking(false)
-                isSpeakingRef.current = false
-              }, 4000)
-            }}
-            style={{
-              ...softPill('rgba(220,252,231,0.97)', '0 4px 16px rgba(110,231,183,0.25)'),
-              cursor: 'pointer', border: '2px solid rgba(110,231,183,0.8)',
-              fontFamily: 'inherit', padding: '6px 12px',
-            }}
-          >
-            <span style={{ fontSize: 16 }}>🗣️</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: '#065f46' }}>Test Speak</span>
-          </motion.button>
-        )}
+
 
         {/* Start / Stop */}
-        {(sessionState === 'idle' || sessionState === 'stopped') && (
+        {(sessionState === 'idle' || sessionState === 'stopped') && !isAdminMode && (
           <motion.button
             whileHover={{ scale: 1.06 }} whileTap={{ scale: 0.94 }}
             onClick={startFaceDetection}
@@ -679,6 +783,38 @@ const MimiChat = () => {
             <span style={{ fontSize: 16 }}>👋</span>
             <span style={{ fontSize: 12, fontWeight: 800, color: '#b91c1c' }}>Bye Alexi!</span>
           </motion.button>
+        )}
+
+        {/* Video Recording Status - Show when auto-recording */}
+        {isAutoRecording && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{
+              ...softPill('rgba(239,68,68,0.95)', '0 4px 16px rgba(239,68,68,0.3)'),
+              border: '2px solid rgba(239,68,68,0.8)',
+            }}
+          >
+            <motion.span
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+              style={{ fontSize: 14, color: 'white' }}
+            >
+              🔴
+            </motion.span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>Recording</span>
+          </motion.div>
+        )}
+
+        {/* Manual Video Recording Controls - Only show if not auto-recording */}
+        {isTeacherMode && sessionState === 'running' && !isAutoRecording && canAutoRecord && (
+          <VideoRecorder
+            studentId={studentId}
+            studentName={studentName}
+            sessionType="chat"
+            autoSendToParent={true}
+            className="relative"
+          />
         )}
 
         {/* Status */}
@@ -946,109 +1082,160 @@ const MimiChat = () => {
         flexDirection: 'column',
         alignItems: 'stretch',
       }}>
-        {/* Response panel — sits at TOP on mobile so it's always visible */}
+        {/* Idle instruction — shown on TV when waiting for a student to start */}
+        <AnimatePresence>
+          {(sessionState === 'idle' || sessionState === 'stopped') && !isAdminMode && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              style={{
+                position: 'absolute', top: '65%', left: '60%',
+                transform: 'none', zIndex: 4,
+                textAlign: 'center', pointerEvents: 'none',
+              }}
+            >
+              <motion.div
+                animate={{ scale: [1, 1.08, 1] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                style={{ fontSize: 52, marginBottom: 10 }}
+              >
+                🎤
+              </motion.div>
+              <div style={{
+                background: 'rgba(255,255,255,0.92)',
+                borderRadius: 24, padding: '14px 28px',
+                boxShadow: '0 8px 32px rgba(167,139,250,0.2)',
+                border: '2px solid rgba(167,139,250,0.3)',
+                backdropFilter: 'blur(12px)',
+              }}>
+                <p style={{ fontSize: 26, fontWeight: 900, color: '#7c3aed', margin: 0 }}>
+                  Say <span style={{ color: P.blue }}>&ldquo;Hey Alexi&rdquo;</span> to start! 👋
+                </p>
+                <p style={{ fontSize: 16, fontWeight: 600, color: P.medium, margin: '6px 0 0' }}>
+                  Or press <strong style={{ color: P.dark }}>Let&apos;s Start!</strong> above
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Response panel — moved to bottom as captions */}
         <div style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'flex-start',
-          padding: '80px 10px 8px',
-          overflowY: 'auto',
-          WebkitOverflowScrolling: 'touch',
-          maxHeight: '60vh',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10, // Above character and vignette
+          padding: '0 20px 28px',
+          pointerEvents: 'auto',
         }}>
           <AnimatePresence>
             {showResponse && (
               <motion.div
                 key={mimiText}
-                initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                initial={{ opacity: 0, y: 20, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -16, scale: 0.97 }}
+                exit={{ opacity: 0, y: 20, scale: 0.97 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 26 }}
                 style={{
-                  background: 'rgba(255,255,255,0.97)',
-                  borderRadius: 20, overflow: 'hidden',
-                  border: '2px solid rgba(147,197,253,0.4)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-                  maxWidth: 480,
-                  width: '100%',
-                  alignSelf: 'center',
+                  background: 'rgba(0,0,0,0.85)', // Dark background for caption readability
+                  borderRadius: 16,
+                  border: '2px solid rgba(255,255,255,0.2)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                  maxWidth: '90%',
+                  margin: '0 auto',
+                  backdropFilter: 'blur(12px)',
                 }}
               >
-                {/* Header */}
+                {/* Caption header */}
                 <div style={{
-                  padding: '12px 18px 10px',
-                  borderBottom: '1.5px solid rgba(224,242,254,0.8)',
+                  padding: '8px 16px 6px',
+                  borderBottom: '1px solid rgba(255,255,255,0.1)',
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  background: 'linear-gradient(135deg, rgba(219,234,254,0.5), rgba(237,233,254,0.3))',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <motion.span
-                      animate={isSpeaking ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+                      animate={isSpeaking ? { scale: [1, 1.2, 1] } : { scale: 1 }}
                       transition={{ duration: 0.5, repeat: Infinity }}
-                      style={{ fontSize: 20 }}
+                      style={{ fontSize: 16 }}
                     >
                       {isSpeaking ? '🔊' : '💬'}
                     </motion.span>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: '#3b82f6', letterSpacing: 0.3 }}>
-                      {isSpeaking ? 'Alexi is talking…' : 'Alexi says'}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#ffffff', letterSpacing: 0.3 }}>
+                      {isSpeaking ? 'Alexi is speaking...' : 'Alexi'}
                     </span>
                   </div>
                   {!isSpeaking && !isTyping && answerTimer > 0 && (
-                    <span style={{
-                      fontSize: 12, fontWeight: 700, color: P.light,
-                      background: 'rgba(219,234,254,0.7)',
-                      padding: '2px 10px', borderRadius: 10,
-                    }}>
-                      {answerTimer}s
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.7)',
+                        background: 'rgba(255,255,255,0.1)',
+                        padding: '2px 8px', borderRadius: 8,
+                      }}>
+                        {answerTimer}s
+                      </span>
+                      <button
+                        onClick={clearResponse}
+                        style={{
+                          background: 'rgba(255,255,255,0.1)', border: 'none',
+                          borderRadius: 8, padding: '2px 8px', cursor: 'pointer',
+                          fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.8)',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   )}
                 </div>
 
-                {/* Answer text */}
-                <div style={{ padding: '14px 18px' }}>
+                {/* Caption text — large, readable like TV captions */}
+                <div style={{ padding: '12px 16px' }}>
                   <p style={{
-                    fontSize: 15, fontWeight: 700, color: P.dark,
-                    lineHeight: 1.6, minHeight: 36, margin: 0,
+                    fontSize: 26, fontWeight: 700, color: '#ffffff',
+                    lineHeight: 1.4, margin: 0, textAlign: 'center',
+                    textShadow: '0 2px 4px rgba(0,0,0,0.5)', // Better readability
                   }}>
                     {displayedText}
                     {isTyping && (
                       <motion.span
                         animate={{ opacity: [1, 0, 1] }}
                         transition={{ duration: 0.55, repeat: Infinity }}
-                        style={{ marginLeft: 1, color: P.blue }}
+                        style={{ marginLeft: 2, color: '#60a5fa' }}
                       >▌</motion.span>
                     )}
                   </p>
                 </div>
 
-                {/* Image */}
+                {/* Image - smaller, inline with captions */}
                 {imageUrl && (
-                  <div style={{ padding: '0 18px 14px' }}>
+                  <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
                     <motion.img
-                      initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
+                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                       src={imageUrl} alt="result" referrerPolicy="no-referrer"
                       style={{
-                        maxHeight: 160, maxWidth: '100%', margin: '0 auto', display: 'block',
-                        borderRadius: 16, objectFit: 'contain',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                        border: '2px solid rgba(224,242,254,0.8)',
+                        maxHeight: 120, maxWidth: '100%',
+                        borderRadius: 12, objectFit: 'contain',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                        border: '2px solid rgba(255,255,255,0.2)',
                       }}
                     />
                   </div>
                 )}
 
-                {/* YouTube */}
+                {/* YouTube - compact for caption area */}
                 {embedUrl && (
-                  <div style={{ padding: '0 18px 14px' }}>
+                  <div style={{ padding: '0 16px 12px', textAlign: 'center' }}>
                     <motion.div
-                      initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-                      style={{ width: '100%', maxWidth: 320, margin: '0 auto' }}
+                      initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                      style={{ width: '100%', maxWidth: 280, margin: '0 auto' }}
                     >
                       <div style={{
-                        borderRadius: 16, overflow: 'hidden', aspectRatio: '16/9',
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-                        border: '2px solid rgba(224,242,254,0.8)',
+                        borderRadius: 12, overflow: 'hidden', aspectRatio: '16/9',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                        border: '2px solid rgba(255,255,255,0.2)',
                       }}>
                         <iframe
                           key={ytPlaying ? 'playing' : 'paused'}
@@ -1060,8 +1247,8 @@ const MimiChat = () => {
                         />
                       </div>
                       {!ytPlaying && (
-                        <p style={{ textAlign: 'center', fontSize: 12, color: P.light, marginTop: 6, fontWeight: 600 }}>
-                          🎬 Say <strong style={{ color: P.blue }}>"Alexi play video"</strong>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', marginTop: 4, fontWeight: 600 }}>
+                          🎬 Say <strong style={{ color: '#60a5fa' }}>"Alexi play video"</strong>
                         </p>
                       )}
                     </motion.div>
@@ -1076,46 +1263,65 @@ const MimiChat = () => {
         <div style={{ display: 'flex', alignItems: 'flex-end', flexShrink: 0, pointerEvents: 'none' }}>
           <div style={{ width: '420px', flexShrink: 0 }} />
 
-          {/* Listening indicator */}
+        {/* Listening indicator — large full-screen glow for TV visibility */}
           <AnimatePresence>
             {showListening && (
               <motion.div
                 key="listening"
-                initial={{ opacity: 0, scale: 0.8, y: 8 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 8 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-                style={{ marginBottom: 60, marginLeft: 8 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 5,
+                  pointerEvents: 'none',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'flex-end',
+                  paddingBottom: '8vh',
+                }}
               >
-                <div style={{
-                  background: 'rgba(255,255,255,0.95)',
-                  borderRadius: 20, padding: '10px 18px',
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  border: '2px solid rgba(167,139,250,0.3)',
-                  boxShadow: '0 6px 20px rgba(167,139,250,0.15)',
-                }}>
+                {/* Pulsing glow ring */}
+                <motion.div
+                  animate={{ scale: [1, 1.18, 1], opacity: [0.5, 0.9, 0.5] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{
+                    width: 160, height: 160, borderRadius: '50%',
+                    background: 'radial-gradient(circle, rgba(167,139,250,0.35) 0%, rgba(96,165,250,0.15) 60%, transparent 80%)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 16,
+                  }}
+                >
                   <motion.span
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                    style={{ fontSize: 20 }}
+                    animate={{ scale: [1, 1.15, 1] }}
+                    transition={{ duration: 0.9, repeat: Infinity }}
+                    style={{ fontSize: 64 }}
                   >
                     🎤
                   </motion.span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                </motion.div>
+                {/* Label */}
+                <div style={{
+                  background: 'rgba(255,255,255,0.95)',
+                  borderRadius: 24, padding: '12px 32px',
+                  border: '3px solid rgba(167,139,250,0.5)',
+                  boxShadow: '0 8px 32px rgba(167,139,250,0.25)',
+                  display: 'flex', alignItems: 'center', gap: 12,
+                }}>
+                  {/* Animated bars */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     {[0, 0.15, 0.3, 0.15, 0].map((delay, i) => (
                       <motion.div key={i}
-                        animate={{ height: [5, 16, 5] }}
+                        animate={{ height: [8, 28, 8] }}
                         transition={{ duration: 0.65, repeat: Infinity, delay }}
                         style={{
-                          width: 3.5, minHeight: 5,
+                          width: 5, minHeight: 8,
                           background: `linear-gradient(to top, ${P.purple}, ${P.blue})`,
-                          borderRadius: 3,
+                          borderRadius: 4,
                         }}
                       />
                     ))}
                   </div>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed' }}>
-                    I'm listening!
+                  <span style={{ fontSize: 22, fontWeight: 900, color: '#7c3aed' }}>
+                    I’m listening!
                   </span>
                 </div>
               </motion.div>

@@ -1,33 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card, PageLoader } from '../../../components/shared';
+import { Button, Card, PageLoader, RefreshButton, SkeletonLoader } from '../../../components/shared';
 import { Users, BookOpen, BarChart, TrendingUp, Monitor, Play } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast } from '../../../utils/toast';
 
 const TeacherHome = () => {
   const navigate = useNavigate();
 
   const [stats,   setStats]   = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const teacherId = localStorage.getItem('userId') || localStorage.getItem('user_id');
 
-  const fetchStats = async () => {
+  const fetchStats = async (isRefresh = false) => {
     try {
-      setLoading(true);
-      const res = await axios.get(
-        `${API_BASE_URL}/api/teacher/dashboard-stats?teacher_id=${teacherId}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
-      );
-      if (res.data?.status === 'success') {
-        setStats(res.data);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(''); // Clear previous errors
+      
+      const res = await apiRequest('get', API_ENDPOINTS.TEACHER_DASHBOARD_STATS(teacherId));
+      if (res?.status === 'success') {
+        setStats(res);
+        if (isRefresh) {
+          showToast.success('Dashboard refreshed successfully');
+        }
       }
     } catch (err) {
       console.error('Dashboard stats error:', err);
+      const errorInfo = handleError(err, { showToast: !isRefresh });
+      if (isRefresh) {
+        showToast.error('Failed to refresh dashboard');
+      } else {
+        setError(errorInfo.message);
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -43,6 +61,23 @@ const TeacherHome = () => {
   const handleStartSession = () => navigate('/teacher/selection');
 
   if (loading) return <PageLoader variant="inline" emoji="📊" text="Loading dashboard…" />;
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <div className="text-6xl">😕</div>
+        <h2 className="text-xl font-semibold text-gray-700">Unable to Load Dashboard</h2>
+        <p className="text-gray-500 text-center max-w-md">{error}</p>
+        <Button 
+          variant="primary" 
+          onClick={() => fetchStats()} 
+          className="mt-4"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   const firstName = stats?.teacher_name
     ? stats.teacher_name.split(' ')[0]
@@ -163,10 +198,11 @@ const TeacherHome = () => {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl sm:text-2xl font-bold text-text">Recent Activities</h2>
-          <button onClick={fetchStats}
-            className="text-sm text-primary-600 hover:underline font-semibold">
-            🔄 Refresh
-          </button>
+          <RefreshButton 
+            onRefresh={() => fetchStats(true)}
+            loading={refreshing}
+            size="sm"
+          />
         </div>
 
         {(!stats?.recent_activities || stats.recent_activities.length === 0) ? (

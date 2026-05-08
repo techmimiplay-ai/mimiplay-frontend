@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal } from '../../../components/shared';
+import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal, ButtonLoading, FormLoading } from '../../../components/shared';
 import { Search, Plus, CheckCircle, XCircle, Eye, Mail, Phone, Building2, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
-import { API_BASE_URL, getAuthHeaders } from '../../../config';
-
-import { useToast } from '../../../context/ToastContext';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const TeacherManagement = () => {
-  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -24,9 +24,15 @@ const TeacherManagement = () => {
   const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/admin/all-users`, { headers: getAuthHeaders() })
-      .then(res => {
-        const data = res.data;
+    const fetchTeachers = async () => {
+      try {
+        const data = await apiToast.operation(
+          () => apiRequest('get', API_ENDPOINTS.ADMIN_ALL_USERS),
+          {
+            loading: 'Loading teachers...',
+            error: 'Failed to load teachers'
+          }
+        );
         if (!Array.isArray(data)) { console.error('API error:', data); return; }
         const formatted = data
           .filter(user => user.role === 'teacher')
@@ -43,9 +49,13 @@ const TeacherManagement = () => {
             lastActive: 'Recently'
           }));
         setTeachers(formatted);
-      })
-      .catch(err => console.error('Fetch error:', err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error('Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTeachers();
   }, []);
 
   const [formData, setFormData] = useState({
@@ -61,12 +71,18 @@ const TeacherManagement = () => {
 
   const handleApprove = async (teacher) => {
     try {
-      await axios.put(`${API_BASE_URL}/api/admin/approve/${teacher.id}`, {}, { headers: getAuthHeaders() });
+      await apiToast.operation(
+        () => apiRequest('put', API_ENDPOINTS.ADMIN_APPROVE_USER(teacher.id)),
+        {
+          loading: `Approving ${teacher.name}...`,
+          success: `${teacher.name} approved successfully!`,
+          error: 'Failed to approve teacher'
+        }
+      );
       setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'active' } : t));
       setShowApprovalModal(false);
     } catch (err) {
       console.error('Approve error:', err);
-      toast('Failed to approve. Please try again.', 'error');
     }
   };
 
@@ -74,12 +90,18 @@ const TeacherManagement = () => {
     confirmAction(`Reject ${teacher.name}?`, async () => {
       closeConfirm();
       try {
-        await axios.delete(`${API_BASE_URL}/api/admin/reject/${teacher.id}`, { headers: getAuthHeaders() });
+        await apiToast.operation(
+          () => apiRequest('delete', API_ENDPOINTS.ADMIN_REJECT_USER(teacher.id)),
+          {
+            loading: `Rejecting ${teacher.name}...`,
+            success: `${teacher.name} rejected successfully`,
+            error: 'Failed to reject teacher'
+          }
+        );
         setTeachers(prev => prev.filter(t => t.id !== teacher.id));
         setShowApprovalModal(false);
       } catch (err) {
         console.error('Reject error:', err);
-        toast('Failed to reject. Please try again.', 'error');
       }
     });
   };
@@ -88,40 +110,64 @@ const TeacherManagement = () => {
     confirmAction(`Deactivate ${teacher.name}?`, async () => {
       closeConfirm();
       try {
-        await axios.put(`${API_BASE_URL}/api/admin/deactivate/${teacher.id}`, {}, { headers: getAuthHeaders() });
+        await apiToast.operation(
+          () => apiRequest('put', API_ENDPOINTS.ADMIN_DEACTIVATE_USER(teacher.id)),
+          {
+            loading: `Deactivating ${teacher.name}...`,
+            success: `${teacher.name} deactivated successfully`,
+            error: 'Failed to deactivate teacher'
+          }
+        );
         setTeachers(prev => prev.map(t => t.id === teacher.id ? { ...t, status: 'inactive' } : t));
       } catch (err) {
         console.error('Deactivate error:', err);
-        toast('Failed to deactivate. Please try again.', 'error');
       }
     });
   };
 
   const handleAddTeacher = async () => {
+    if (!formData.name.trim()) {
+      showToast.warning('Teacher name is required');
+      return;
+    }
+    if (!formData.email.trim()) {
+      showToast.warning('Email is required');
+      return;
+    }
     try {
       const payload = { ...formData, email: formData.email.toLowerCase() };
-      const res = await axios.post(`${API_BASE_URL}/api/admin/add-teacher`, payload, { headers: getAuthHeaders() });
-      const data = res.data;
+      await apiToast.operation(
+        () => apiRequest('post', API_ENDPOINTS.ADMIN_ADD_TEACHER, payload),
+        {
+          loading: 'Adding teacher...',
+          success: 'Teacher added successfully!',
+          error: 'Failed to add teacher'
+        }
+      );
       const newTeacher = { ...formData, school: formData.school || 'N/A', class: formData.class || 'N/A', students: 0, status: 'pending', joinedDate: new Date().toLocaleDateString(), lastActive: 'Just now' };
       setTeachers(prev => [newTeacher, ...prev]);
       setFormData({ name: '', email: '', phone: '', school: '', class: '', password: '' });
       setShowAddModal(false);
     } catch (err) {
       console.error(err);
-      toast(err.response?.data?.msg || 'Error adding teacher', 'error');
     }
   };
 
   const handleUpdateTeacher = async () => {
     try {
       const payload = { ...editData, email: editData.email.toLowerCase() };
-      await axios.put(`${API_BASE_URL}/api/admin/edit-teacher/${editData.id}`, payload, { headers: getAuthHeaders() });
-      toast('Teacher updated successfully', 'success');
+      await apiToast.operation(
+        () => apiRequest('put', API_ENDPOINTS.ADMIN_EDIT_TEACHER(editData.id), payload),
+        {
+          loading: 'Updating teacher...',
+          success: 'Teacher updated successfully!',
+          error: 'Failed to update teacher'
+        }
+      );
       setTeachers(prev => prev.map(t => t.id === editData.id ? editData : t));
       setShowEditModal(false);
     } catch (err) {
       console.error(err);
-      toast(err.response?.data?.msg || 'Error updating teacher', 'error');
     }
   };
 
@@ -142,9 +188,9 @@ const TeacherManagement = () => {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Teacher Management</h1>
           <p className="text-text/60">Manage teacher accounts and approvals</p>
         </div>
-        <Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
+        <ButtonLoading variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
           Add Teacher
-        </Button>
+        </ButtonLoading>
       </div>
 
       {/* Stats Cards */}
@@ -302,8 +348,8 @@ const TeacherManagement = () => {
           <Input label="Password" type="password" placeholder="Enter password"
             value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
           <div className="flex gap-3 mt-6">
-            <Button variant="primary" onClick={handleAddTeacher} className="flex-1">Add Teacher</Button>
-            <Button variant="outline" onClick={() => setShowAddModal(false)} className="flex-1">Cancel</Button>
+            <ButtonLoading variant="primary" onClick={handleAddTeacher} className="flex-1">Add Teacher</ButtonLoading>
+            <ButtonLoading variant="outline" onClick={() => setShowAddModal(false)} className="flex-1">Cancel</ButtonLoading>
           </div>
         </div>
       </Modal>
@@ -323,8 +369,8 @@ const TeacherManagement = () => {
             <Input label="Class" value={editData.class}
               onChange={(e) => setEditData({ ...editData, class: e.target.value })} />
             <div className="flex gap-3 mt-6">
-              <Button variant="primary" onClick={handleUpdateTeacher} className="flex-1">Save Changes</Button>
-              <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">Cancel</Button>
+              <ButtonLoading variant="primary" onClick={handleUpdateTeacher} className="flex-1">Save Changes</ButtonLoading>
+              <ButtonLoading variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">Cancel</ButtonLoading>
             </div>
           </div>
         </Modal>
@@ -374,8 +420,8 @@ const TeacherManagement = () => {
             </div>
             {selectedTeacher.status === 'pending' && (
               <div className="flex gap-3 mt-6">
-                <Button variant="primary" icon={CheckCircle} onClick={() => handleApprove(selectedTeacher)} className="flex-1">Approve</Button>
-                <Button variant="outline" icon={XCircle} onClick={() => handleReject(selectedTeacher)} className="flex-1">Reject</Button>
+                <ButtonLoading variant="primary" icon={CheckCircle} onClick={() => handleApprove(selectedTeacher)} className="flex-1">Approve</ButtonLoading>
+                <ButtonLoading variant="outline" icon={XCircle} onClick={() => handleReject(selectedTeacher)} className="flex-1">Reject</ButtonLoading>
               </div>
             )}
           </div>

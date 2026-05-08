@@ -5,6 +5,7 @@ import App from './App.jsx'
 import axios from 'axios'
 import ErrorBoundary from './components/shared/ErrorBoundary.jsx'
 import { ToastProvider } from './context/ToastContext.jsx'
+import { clearUserSession } from './utils/auth'
 
 const isPublicApiRequest = (url) => {
   if (!url) return false;
@@ -47,8 +48,7 @@ axios.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
     if ((status === 401 || status === 403) && !isPublicApiRequest(error.config?.url)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
+      clearUserSession();
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
@@ -76,8 +76,7 @@ window.fetch = (input, init = {}) => {
 
   return originalFetch(input, init).then(response => {
     if ((response.status === 401 || response.status === 403) && !isPublicApiRequest(url)) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
+      clearUserSession();
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }

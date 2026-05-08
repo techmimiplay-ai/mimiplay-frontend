@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, TrendingUp, Award, FileText, LogOut, Settings, Gamepad2 } from 'lucide-react';
+import { Home, TrendingUp, Award, FileText, LogOut, Settings, Gamepad2, MessageCircle, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE_URL, getAuthHeaders } from '../../config';
+import { API_ENDPOINTS } from '../../config';
+import { performLogout } from '../../utils/auth';
+import { apiRequest } from '../../utils/api';
 
 import ParentHome from '../../components/parent/home/ParentHome';
 import ProgressTab from '../../components/parent/progress/ProgressTab';
@@ -11,6 +13,9 @@ import ActivityLog from '../../components/parent/activity-log/ActivityLog';
 import SettingsTab from '../../components/parent/settings/SettingsTab';
 import ParentChildSelector from '../../components/parent/ParentChildSelector';
 import PageLoader from '../../components/shared/PageLoader';
+import ParentChatHistory from '../../components/parent/ParentChatHistory';
+import ClassLeaderboard from '../../components/parent/ClassLeaderboard';
+import SelectionScreen from '../SelectionScreen';
 
 const ParentPortal = () => {
   const navigate = useNavigate();
@@ -24,11 +29,8 @@ const ParentPortal = () => {
       const parentId = localStorage.getItem('userId');
       if (!parentId) { navigate('/login'); return; }
       try {
-        const res = await fetch(`${API_BASE_URL}/api/parent/my-children/${parentId}`, {
-          headers: getAuthHeaders()
-        });
-        const data = await res.json();
-        if (res.ok) {
+        const data = await apiRequest('get', API_ENDPOINTS.PARENT_MY_CHILDREN(parentId));
+        if (data) {
           setChildren(data);
           if (data.length > 0) {
             setSelectedChild(data[0]);
@@ -51,8 +53,10 @@ const ParentPortal = () => {
     { path: '/parent/progress',     icon: TrendingUp, label: 'Progress',    color: 'blue'   },
     { path: '/parent/achievements', icon: Award,     label: 'Achievements', color: 'yellow' },
     { path: '/parent/activity-log', icon: FileText,  label: 'Activities',   color: 'green'  },
-    { path: '/parent/settings',     icon: Settings,  label: 'Settings',     color: 'purple' },
-    { path: '/parent-selection',    icon: Gamepad2,  label: 'Play',         color: 'orange' },
+    { path: '/parent/chat-history', icon: MessageCircle, label: 'Chat History', color: 'indigo' },
+    { path: '/parent/leaderboard',  icon: Trophy,        label: 'Leaderboard',  color: 'amber'  },
+    { path: '/parent/settings',     icon: Settings,      label: 'Settings',     color: 'purple' },
+    { path: '/parent/selection',    icon: Gamepad2,      label: 'Play',         color: 'orange' },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -62,12 +66,7 @@ const ParentPortal = () => {
     localStorage.setItem('selectedChild', JSON.stringify(child));
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('userId');
-    navigate('/login');
-  };
+  const handleLogout = () => performLogout(navigate);
 
   const getColorClasses = (color, active) => {
     const colors = {
@@ -75,8 +74,10 @@ const ParentPortal = () => {
       blue:   active ? 'bg-blue-400 text-white shadow-blue-200'     : 'bg-blue-100 text-blue-700 hover:bg-blue-200',
       yellow: active ? 'bg-yellow-400 text-white shadow-yellow-200' : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200',
       green:  active ? 'bg-green-400 text-white shadow-green-200'   : 'bg-green-100 text-green-700 hover:bg-green-200',
+      indigo: active ? 'bg-indigo-400 text-white shadow-indigo-200' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200',
       purple: active ? 'bg-purple-400 text-white shadow-purple-200' : 'bg-purple-100 text-purple-700 hover:bg-purple-200',
       orange: active ? 'bg-orange-400 text-white shadow-orange-200' : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
+      amber:  active ? 'bg-amber-400 text-white shadow-amber-200'   : 'bg-amber-100 text-amber-700 hover:bg-amber-200',
     };
     return colors[color] || colors.pink;
   };
@@ -157,7 +158,10 @@ const ParentPortal = () => {
               <Route path="progress"     element={<ProgressTab selectedChild={selectedChild} />} />
               <Route path="achievements" element={<AchievementsTab selectedChild={selectedChild} />} />
               <Route path="activity-log" element={<ActivityLog selectedChild={selectedChild} />} />
+              <Route path="chat-history" element={<ParentChatHistory />} />
+              <Route path="leaderboard"  element={<ClassLeaderboard childName={selectedChild?.name || ''} />} />
               <Route path="settings"     element={<SettingsTab />} />
+              <Route path="selection"    element={<SelectionScreen />} />
             </Routes>
           </motion.div>
         </AnimatePresence>

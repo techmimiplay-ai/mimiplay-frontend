@@ -30,7 +30,8 @@ import LOG from '../logger';
 export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
   const pollRef         = useRef(null);
   const cameraStreamRef = useRef(null);
-  const recognizedRef   = useRef(false); // prevents double-fire
+  const recognizedRef   = useRef(false);
+  const abortCtrlRef    = useRef(null); // aborts in-flight request before next tick
 
   /* ── stopCamera ────────────────────────────────────────────── */
   const stopCamera = useCallback(() => {
@@ -107,16 +108,22 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
           const videoEl = liveVideoRef.current;
           if (!videoEl || videoEl.readyState < 2) return;
 
+          // Abort any previous in-flight request before starting a new one
+          if (abortCtrlRef.current) abortCtrlRef.current.abort();
+          abortCtrlRef.current = new AbortController();
+
           const doneFrame = LOG.time('Face detect API round-trip');
           try {
-            // 240x180 at quality 0.5 is sufficient for face detection
-            // and cuts toDataURL cost by ~60% vs 320x240 at 0.7
             canvasEl.width  = 240;
             canvasEl.height = 180;
             canvasEl.getContext('2d').drawImage(videoEl, 0, 0, 240, 180);
             const base64 = canvasEl.toDataURL('image/jpeg', 0.5);
 
-            const res  = await axios.post(API_ENDPOINTS.PROCESS_FRAME, { image: base64 });
+            const res = await axios.post(
+              API_ENDPOINTS.PROCESS_FRAME,
+              { image: base64 },
+              { signal: abortCtrlRef.current.signal }
+            );
             doneFrame({ person: res.data?.person || 'none' });
 
             const person = res.data?.person;
@@ -144,7 +151,8 @@ export function useFaceDetect({ mountedRef, phaseRef, liveVideoRef, seenRef }) {
             if (mountedRef.current) onRecognized(name);
 
           } catch (e) {
-            // Non-fatal — next interval tick will retry
+            // Ignore abort errors — expected when a new tick cancels the previous request
+            if (axios.isCancel(e) || e?.name === 'CanceledError' || e?.name === 'AbortError') return;
             LOG.warn('FaceDetect', 'Frame API error', e.message);
           }
         }, 1200);

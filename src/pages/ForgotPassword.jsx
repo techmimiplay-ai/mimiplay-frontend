@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // ← ADD THIS
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { API_ENDPOINTS } from '../config';
 import { AuthLayout } from '../layouts';
-import { Button, Input } from '../components/shared';
+import { Button, Input, ButtonLoading, FormLoading } from '../components/shared';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { handleError } from '../utils/errorHandler';
+import { showToast, apiToast } from '../utils/toast';
 
 const ForgotPassword = () => {
-  const navigate = useNavigate(); // ← ADD THIS
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,21 +21,37 @@ const ForgotPassword = () => {
     
     if (!email) {
       setError('Email is required');
+      showToast.warning('Please enter your email address');
       return;
     }
     
     if (!/\S+@\S+\.\S+/.test(email)) {
       setError('Email is invalid');
+      showToast.warning('Please enter a valid email address');
       return;
     }
     
     setLoading(true);
+    setError('');
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await apiToast.operation(
+        () => axios.post(API_ENDPOINTS.FORGOT_PASSWORD, { email }),
+        {
+          loading: 'Sending reset link...',
+          success: 'Password reset link sent successfully!',
+          error: 'Failed to send reset email. Please try again.'
+        }
+      );
+      
       setEmailSent(true);
+      
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      // Error already handled by apiToast
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   if (emailSent) {
@@ -70,7 +90,7 @@ const ForgotPassword = () => {
             </p>
           </div>
           
-          {/* ↓↓↓ UPDATED: Navigate to login */}
+          {/* Back to login button */}
           <Button
             variant="primary"
             size="lg"
@@ -90,32 +110,31 @@ const ForgotPassword = () => {
       title="Forgot Password?"
       subtitle="No worries! We'll send you reset instructions"
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <FormLoading loading={loading}>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="Enter your email"
+            icon={Mail}
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (error) setError('');
+            }}
+            error={error}
+          />
+          
+          <ButtonLoading
+            type="submit"
+            loading={loading}
+            className="w-full"
+          >
+            Send Reset Link
+          </ButtonLoading>
         
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="Enter your email"
-          icon={Mail}
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            if (error) setError('');
-          }}
-          error={error}
-        />
-        
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          className="w-full"
-          loading={loading}
-        >
-          Send Reset Link
-        </Button>
-        
-        {/* ↓↓↓ UPDATED: Navigate to login */}
+        {/* Back to login button */}
         <button
           type="button"
           onClick={() => navigate('/login')}
@@ -124,7 +143,8 @@ const ForgotPassword = () => {
           <ArrowLeft size={18} />
           <span>Back to Sign In</span>
         </button>
-      </form>
+        </form>
+      </FormLoading>
     </AuthLayout>
   );
 };

@@ -32,7 +32,7 @@ import React, {
 } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE_URL, API_ENDPOINTS } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
 
 import bgImage       from '../../../assets/images/mimi/activity_bg.jpg';
 import mimiIdleVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
@@ -42,6 +42,8 @@ import mimiNeutralVideo from '../../../assets/images/mimi/mimiidell_nobg.webm';
 
 import MimiCharacter from '../../mimi/MimiCharacter';
 import useMimiCustomizer from '../../../hooks/useMimiCustomizer';
+import { resolveOutfit } from '../../../utils/mimiDefaults';
+import { useAutoVideoRecording } from '../../../hooks/useAutoVideoRecording';
 
 
 import LOG from './logger';
@@ -169,8 +171,14 @@ const CameraPreviewCard = memo(function CameraPreviewCard({
 /* ─────────────────────────────────────────────────────────────
  *  MimiActivityOverlay
  * ───────────────────────────────────────────────────────────── */
-function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isParentMode = false, childName = '' }) {
-  LOG.render('MimiActivityOverlay', `activityId=${activity.id} difficulty=${difficulty}`);
+function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, mode, isParentMode = false, childName = '' }) {
+  LOG.render('MimiActivityOverlay', `activityId=${activity.id} difficulty=${difficulty} mode=${mode}`);
+
+  // mode prop takes priority; isParentMode kept for any legacy callers
+  const resolvedMode = mode || (isParentMode ? 'parent' : 'teacher');
+  const isAdminMode  = resolvedMode === 'admin';
+  const isParent     = resolvedMode === 'parent';
+  const isTeacherMode = resolvedMode === 'teacher' || resolvedMode === 'admin';
 
   /* ── Initial words ─────────────────────────────────────────── */
   const rawStatic   = ACTIVITY_WORDS[activity.id]?.[difficulty] ?? ACTIVITY_WORDS[activity.id]?.easy ?? ['Hello'];
@@ -186,6 +194,16 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const [mimiVideo,      setMimiVideo]      = useState(mimiIdleVideo);
   const [isSpeaking, setIsSpeaking]         = useState(false);
 
+  // Auto video recording for individual student sessions
+  const { isAutoRecording } = useAutoVideoRecording({
+    sessionState: studentName && !['waiting', 'between_students'].includes(phase) ? 'running' : 'idle',
+    studentId: null, // We'll get this from student lookup
+    studentName,
+    sessionType: 'activity',
+    isTeacherMode,
+    autoSendToParent: true
+  });
+
   // Customizer hook — for outfit and background 
   const { selectedClothes }                 = useMimiCustomizer();
 
@@ -196,7 +214,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const [isCorrect,      setIsCorrect]      = useState(null);
   const [starsEarned,    setStarsEarned]    = useState(0);
   const [llmFeedback,    setLlmFeedback]    = useState('');
-  const [countdown,      setCountdown]      = useState(5);
+  const [countdown,      setCountdown]      = useState(15);
   const [sessionResults, setSessionResults] = useState([]);
   const [isPaused,       setIsPaused]       = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
@@ -214,8 +232,9 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   const liveVideoRef     = useRef(null);
   const resultTimerRef   = useRef(null);
   const intentionalStopRef = useRef(false);
-  const currentRef       = useRef(0); // mirror of current state for closures
-  const wordsRef         = useRef(staticWords); // mirror of words for closures
+  const currentRef       = useRef(0);
+  const wordsRef         = useRef(staticWords);
+  const sessionQARef     = useRef([]); // accumulates { question, childSaid, correct } per answer
 
   useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => { phaseRef.current    = phase;    }, [phase]);
@@ -293,7 +312,8 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   /* ── Camera start ──────────────────────────────────────────── */
   useEffect(() => {
     intentionalStopRef.current = false;
-    if (!isParentMode) {
+    // Skip camera for parent and admin modes — child is known already
+    if (!isParent && !isAdminMode) {
       startCameraPoll(name => {
         setStudentName(name);
         setMimiVideo(mimiWaveVideo);
@@ -305,19 +325,19 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       cameraStreamRef.current?.getTracks().forEach(t => t.stop());
       setTimeout(() => {
         if (intentionalStopRef.current)
-          axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => {});
+      axios.get(API_ENDPOINTS.STOP_FACE_DETECT).catch(() => {});
       }, 100);
     };
   }, []); // eslint-disable-line
 
-  /* ── Parent mode: advance to intro once questions are ready ── */
+  /* ── Parent / admin mode: advance to intro once questions are ready ── */
   useEffect(() => {
-    if (!isParentMode || loadingQ) return;
-    const name = childName || 'Student';
+    if ((!isParent && !isAdminMode) || loadingQ) return;
+    const name = isAdminMode ? 'Test Student' : (childName || 'Student');
     setStudentName(name);
     setMimiVideo(mimiWaveVideo);
     setPhase('intro');
-  }, [isParentMode, loadingQ, childName]); // eslint-disable-line
+  }, [isParent, isAdminMode, loadingQ, childName]); // eslint-disable-line
 
   /* ── Reset for next student ────────────────────────────────── */
   const resetForNextStudent = useCallback(() => {
@@ -328,25 +348,24 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setStarsEarned(0); setStudentName(''); setMimiVideo(mimiIdleVideo);
     answeredRef.current = false;
     seenRef.current.clear();
+    sessionQARef.current = [];
     resetRecognized();
     clearPrefetch();
     setPhase('waiting');
-    if (!isParentMode) {
+    if (!isParent && !isAdminMode) {
       startCameraPoll(name => {
         setStudentName(name);
         setMimiVideo(mimiWaveVideo);
         setPhase('intro');
       });
     }
-    // In parent mode, the loadingQ useEffect will re-trigger intro
-    // if questions need reloading, otherwise set directly
-    if (isParentMode) {
-      const name = childName || 'Student';
+    if (isParent || isAdminMode) {
+      const name = isAdminMode ? 'Test Student' : (childName || 'Student');
       setStudentName(name);
       setMimiVideo(mimiWaveVideo);
       setPhase('intro');
     }
-  }, [startCameraPoll, resetRecognized, clearPrefetch, isParentMode, childName]);
+  }, [startCameraPoll, resetRecognized, clearPrefetch, isParent, isAdminMode, childName]);
 
   /* ── voice-stop phase ──────────────────────────────────────── */
   useEffect(() => {
@@ -356,8 +375,8 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
 
   /* ── between_students countdown ───────────────────────────── */
   useEffect(() => {
-    if (isParentMode || phase !== 'between_students') return;
-    setCountdown(5);
+    if (isParent || isAdminMode || phase !== 'between_students') return;
+    setCountdown(15);
     const tick = setInterval(() => {
       setCountdown(c => {
         if (c <= 1) { clearInterval(tick); resetForNextStudent(); return 0; }
@@ -565,6 +584,14 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     setPhase('result');
     clearTimeout(resultTimerRef.current);
 
+    // Record this Q&A pair
+    const item = wordsRef.current[currentRef.current];
+    sessionQARef.current.push({
+      question: getWordLabel(item),
+      childSaid: transcript,
+      correct: ok,
+    });
+
     try { await speakWithAnim(feedback); } catch (e) { LOG.warn('Result', 'speak error', e.message); }
 
     if (sessionEndedRef.current) return;
@@ -595,11 +622,11 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     if (!skipTransition) speakWithAnim(spokenMsg).catch(() => {});
 
     seenRef.current.add(studentName.toLowerCase());
-    onStudentDone({ stars: earned, score, correct: fc, total, studentName });
+    onStudentDone({ stars: earned, score, correct: fc, total, studentName, qa: [...sessionQARef.current] });
     setSessionResults(prev => [...prev, { name: studentName, stars: earned, score, correct: fc, total }]);
 
     if (!isEarly && !skipTransition) {
-      if (isParentMode) {
+      if (isParent || isAdminMode) {
         setTimeout(() => { sessionEndedRef.current = true; setSessionEnded(true); }, 4500);
       } else {
         setTimeout(() => setPhase('between_students'), 4500);
@@ -617,7 +644,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       if (isPausedRef.current) return;
       cancelSpeech();
       clearTimeout(resultTimerRef.current);
-      isPausedRef.current = true; setIsPaused(true); setListening(false);
+      isPausedRef.current = true; setIsPaused(true);
       setMimiSaying('⏸️ Activity paused. Say "Resume Alexi" to continue.');
       setMimiVideo(mimiIdleVideo);
     } else if (cmd === 'resume') {
@@ -629,7 +656,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       cancelSpeech();
       clearTimeout(resultTimerRef.current);
       clearInterval(pollRef.current);
-      isPausedRef.current = true; setIsPaused(true); setListening(false);
+      isPausedRef.current = true; setIsPaused(true);
       setPhase('voice-stop');
     }
   }, [cancelSpeech, pollRef]);
@@ -658,7 +685,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
     LOG.info('UI', 'End Session clicked');
     cancelSpeech(); clearTimeout(resultTimerRef.current); clearInterval(pollRef.current);
     stopCamera();
-    isPausedRef.current = true; setIsPaused(true); setListening(false);
+    isPausedRef.current = true; setIsPaused(true);
     setMimiVideo(mimiIdleVideo); setMimiSaying('⏸️ Activity paused');
     setShowEndConfirm(true);
   }
@@ -758,6 +785,25 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
   return (
     <div className="fixed inset-0 z-50 bg-cover bg-center overflow-hidden"
          style={{ backgroundImage: `url(${bgImage})`, fontFamily: "'Nunito','Fredoka One',sans-serif" }}>
+
+      {/* Auto Recording Status - Show when recording individual student */}
+      {isAutoRecording && studentName && (
+        <div className="absolute top-16 right-4 z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-2 px-3 py-2 bg-red-500/90 backdrop-blur text-white rounded-full text-sm font-bold shadow-lg border-2 border-red-600"
+          >
+            <motion.span
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 1, repeat: Infinity }}
+            >
+              🔴
+            </motion.span>
+            Recording {studentName}
+          </motion.div>
+        </div>
+      )}
 
       {/* Difficulty badge — bottom-right so it never overlaps the student name at top */}
       <div className="absolute bottom-4 right-4 z-50">
@@ -910,6 +956,13 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
                   className="text-6xl font-black text-purple-700" style={FONT_FREDOKA}>
                   {countdown}
                 </motion.div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                  onClick={resetForNextStudent}
+                  className="mt-4 px-6 py-2.5 bg-purple-500 hover:bg-purple-600 text-white font-black rounded-2xl shadow-lg transition-colors text-sm"
+                >
+                  Next Student →
+                </motion.button>
               </div>
             </motion.div>
           )}
@@ -1024,7 +1077,7 @@ function MimiActivityOverlay({ activity, difficulty, onStudentDone, onClose, isP
       >
         <MimiCharacter
           isSpeaking={isSpeaking}   // 🔊 Real-time talking animation!
-          outfit={selectedClothes || 'uniform'}
+          outfit={resolveOutfit(selectedClothes)}
           expression={
             phase === 'done' && starsEarned >= 4 ? 'excited'
             : phase === 'result' && isCorrect ? 'happy'

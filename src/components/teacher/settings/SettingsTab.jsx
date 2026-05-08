@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
-import { Button, Card, Input, Avatar } from '../../../components/shared';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
+import { Button, Card, Input, Avatar, ButtonLoading, FormLoading } from '../../../components/shared';
 import { User, Mail, Phone, Lock, Bell, Monitor, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const SettingsTab = () => {
   const [activeTab,    setActiveTab]    = useState('profile');
   const [loading,      setLoading]      = useState(true);
-  const [saveMsg,      setSaveMsg]      = useState('');
-  const [saveError,    setSaveError]    = useState('');
 
   const teacherId = localStorage.getItem('userId') || localStorage.getItem('user_id');
 
@@ -42,11 +43,9 @@ const SettingsTab = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(
-        `${API_BASE_URL}/api/teacher/profile?teacher_id=${teacherId}`
-      );
-      if (res.data?.status === 'success') {
-        setProfileData(res.data.profile);
+      const res = await apiRequest('get', API_ENDPOINTS.TEACHER_PROFILE(teacherId));
+      if (res?.status === 'success') {
+        setProfileData(res.profile);
       }
     } catch (err) {
       console.error('Profile fetch error:', err);
@@ -64,10 +63,9 @@ const SettingsTab = () => {
   // ── Save profile ────────────────────────────────────────────
   const handleSaveProfile = async () => {
     try {
-      await axios.put(
-        `${API_BASE_URL}/api/teacher/profile?teacher_id=${teacherId}`,
-        { ...profileData, email: profileData.email.toLowerCase() }
-      );
+      await apiRequest('put', API_ENDPOINTS.TEACHER_PROFILE(teacherId), {
+        ...profileData, email: profileData.email.toLowerCase()
+      });
       showMsg('✅ Profile updated successfully!');
     } catch (err) {
       showMsg('❌ Could not save profile', true);
@@ -86,15 +84,14 @@ const SettingsTab = () => {
       showMsg('❌ Password must be at least 6 characters', true); return;
     }
     try {
-      const res = await axios.put(
-        `${API_BASE_URL}/api/teacher/change-password?teacher_id=${teacherId}`,
-        { currentPassword: passwordData.currentPassword, newPassword: passwordData.newPassword }
-      );
-      if (res.data?.status === 'success') {
+      const res = await apiRequest('put', API_ENDPOINTS.TEACHER_CHANGE_PASSWORD(teacherId), {
+        currentPassword: passwordData.currentPassword, newPassword: passwordData.newPassword
+      });
+      if (res?.status === 'success') {
         showMsg('✅ Password changed successfully!');
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
       } else {
-        showMsg(`❌ ${res.data?.message || 'Failed'}`, true);
+        showMsg(`❌ ${res?.message || 'Failed'}`, true);
       }
     } catch (err) {
       const msg = err.response?.data?.message || 'Could not change password';
@@ -205,9 +202,9 @@ const SettingsTab = () => {
             </div>
 
             <div className="flex justify-end mt-6">
-              <Button variant="primary" icon={Save} onClick={handleSaveProfile} className="w-full sm:w-auto">
+              <ButtonLoading variant="primary" icon={Save} onClick={handleSaveProfile} className="w-full sm:w-auto">
                 Save Changes
-              </Button>
+              </ButtonLoading>
             </div>
           </Card>
         </motion.div>

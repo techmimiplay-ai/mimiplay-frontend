@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '../../../components/shared';
+import { Card, SkeletonLoader, RefreshButton } from '../../../components/shared';
 import { TrendingUp, Award, BookOpen, Star, Calendar, MessageCircle, Gamepad2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast } from '../../../utils/toast';
 
 const ParentHome = ({ selectedChild }) => {
 
@@ -19,6 +22,8 @@ const ParentHome = ({ selectedChild }) => {
   const [presentToday, setPresentToday] = useState(false);
   const [showLiveBanner, setShowLiveBanner] = useState(false);
   const [latestResult, setLatestResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const prevCountRef = useRef(0);
 
   const totalStars = starsData.total_stars;
@@ -48,35 +53,46 @@ const ParentHome = ({ selectedChild }) => {
     return () => { cancelled = true; clearInterval(interval); };
   }, [selectedChild?.id]);
 
-  const fetchStarsData = async (studentId) => {
+  const fetchStarsData = async (studentId, isRefresh = false) => {
     try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/parent/child-stars?student_id=${studentId}`
-      );
-      if (res.data?.status === 'success') {
-        setStarsData(res.data);
-        if (res.data.results.length > prevCountRef.current && prevCountRef.current > 0) {
-          setLatestResult(res.data.results[0]);
+      if (isRefresh) setRefreshing(true);
+      
+      const res = await apiRequest('get', API_ENDPOINTS.PARENT_CHILD_STARS(studentId));
+      if (res?.status === 'success') {
+        setStarsData(res);
+        if (res.results.length > prevCountRef.current && prevCountRef.current > 0) {
+          setLatestResult(res.results[0]);
           setShowLiveBanner(true);
           setTimeout(() => setShowLiveBanner(false), 4000);
         }
-        prevCountRef.current = res.data.results.length;
+        prevCountRef.current = res.results.length;
+        
+        if (isRefresh) {
+          showToast.success('Data refreshed successfully');
+        }
       }
     } catch (err) {
       console.error('Stars fetch error:', err);
+      if (isRefresh) {
+        handleError(err, { customMessage: 'Failed to refresh data' });
+      } else {
+        handleError(err, { showToast: false });
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const fetchAttendance = async (studentId, studentName) => {
     try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/parent/check-attendance?student_id=${studentId}&name=${encodeURIComponent(studentName)}`
-      );
-      if (res.data?.status === 'success') {
-        setPresentToday(res.data.present);
+      const res = await apiRequest('get', API_ENDPOINTS.PARENT_CHECK_ATTENDANCE(studentId, studentName));
+      if (res?.status === 'success') {
+        setPresentToday(res.present);
       }
     } catch (err) {
       console.error('Attendance fetch error:', err);
+      handleError(err, { showToast: false });
     }
   };
 
@@ -115,7 +131,7 @@ const ParentHome = ({ selectedChild }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <motion.button
           whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-          onClick={() => navigate('/mimi-chat')}
+          onClick={() => navigate('/chat', { state: { mode: 'parent' } })}
           className="flex items-center gap-4 p-5 bg-gradient-to-r from-purple-400 to-indigo-500 rounded-2xl text-white shadow-lg text-left"
         >
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
@@ -130,7 +146,7 @@ const ParentHome = ({ selectedChild }) => {
 
         <motion.button
           whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-          onClick={() => navigate('/parent-selection')}
+          onClick={() => navigate('/activities', { state: { mode: 'parent', childName: selectedChild?.name } })}
           className="flex items-center gap-4 p-5 bg-gradient-to-r from-pink-400 to-rose-500 rounded-2xl text-white shadow-lg text-left"
         >
           <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
@@ -252,7 +268,14 @@ const ParentHome = ({ selectedChild }) => {
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl sm:text-2xl font-bold text-text">Today's Activities</h2>
-          <Calendar size={24} className="text-primary-600" />
+          <div className="flex items-center gap-2">
+            <RefreshButton 
+              onRefresh={() => fetchStarsData(selectedChild.id, true)}
+              loading={refreshing}
+              size="sm"
+            />
+            <Calendar size={24} className="text-primary-600" />
+          </div>
         </div>
         {todayResults.length === 0 ? (
           <div className="text-center py-10 text-text/40">

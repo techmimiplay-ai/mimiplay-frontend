@@ -1,10 +1,13 @@
 import React from 'react';
-import { Card, Button, PageLoader, ConfirmModal } from '../../../components/shared';
+import { Card, Button, PageLoader, ConfirmModal, SkeletonLoader, RefreshButton } from '../../../components/shared';
 import { Users, UserPlus, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const AdminDashboard = () => {
 
@@ -24,17 +27,22 @@ const AdminDashboard = () => {
 
   const fetchDashboardData = async () => {
     setLoading(true);
+    setErrorMsg(''); // Clear previous errors
+    
     try {
       const [statsRes, pendingRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/admin/dashboard-stats`),
-        axios.get(`${API_BASE_URL}/api/admin/pending-users`),
+        apiRequest('get', API_ENDPOINTS.ADMIN_DASHBOARD_STATS),
+        apiRequest('get', API_ENDPOINTS.ADMIN_PENDING_USERS),
       ]);
-      setStats(statsRes.data);
-      setPendingApprovals(Array.isArray(pendingRes.data) ? pendingRes.data : []);
-      setRecentActivity(Array.isArray(statsRes.data?.recentActivity) ? statsRes.data.recentActivity : []);
+      
+      setStats(statsRes);
+      setPendingApprovals(Array.isArray(pendingRes) ? pendingRes : []);
+      setRecentActivity(Array.isArray(statsRes?.recentActivity) ? statsRes.recentActivity : []);
+      
     } catch (error) {
       console.error('Dashboard fetch error:', error);
-      setErrorMsg('Failed to load dashboard data. Please try again.');
+      const errorInfo = handleError(error, { showToast: false });
+      setErrorMsg(errorInfo.message);
     } finally {
       setLoading(false);
     }
@@ -42,13 +50,22 @@ const AdminDashboard = () => {
 
   const handleApprove = async (item) => {
     setApprovingId(item.id);
+    
     try {
-      await axios.put(`${API_BASE_URL}/api/admin/approve/${item.id}`);
+      await apiToast.operation(
+        () => apiRequest('put', API_ENDPOINTS.ADMIN_APPROVE_USER(item.id)),
+        {
+          loading: `Approving ${item.name}...`,
+          success: `${item.name} approved successfully`,
+          error: `Failed to approve ${item.name}`
+        }
+      );
+      
       setPendingApprovals(prev => prev.filter(p => p.id !== item.id));
       setStats(prev => ({ ...prev, pendingApprovals: Math.max(0, (prev.pendingApprovals || 1) - 1) }));
+      
     } catch (err) {
       console.error('Approve error:', err);
-      setErrorMsg('Failed to approve. Please try again.');
     } finally {
       setApprovingId(null);
     }
@@ -63,7 +80,7 @@ const AdminDashboard = () => {
     setConfirm({ open: false, item: null });
     setRejectingId(item.id);
     try {
-      await axios.delete(`${API_BASE_URL}/api/admin/reject/${item.id}`);
+      await apiRequest('delete', API_ENDPOINTS.ADMIN_REJECT_USER(item.id));
       setPendingApprovals(prev => prev.filter(p => p.id !== item.id));
       setStats(prev => ({ ...prev, pendingApprovals: Math.max(0, (prev.pendingApprovals || 1) - 1) }));
     } catch (err) {
@@ -91,10 +108,11 @@ const AdminDashboard = () => {
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Admin Dashboard</h1>
           <p className="text-text/60">System overview and management</p>
         </div>
-        <button onClick={() => setRefreshKey(k => k + 1)}
-          className="text-sm text-primary-600 hover:underline font-semibold">
-          🔄 Refresh
-        </button>
+        <RefreshButton 
+          onRefresh={() => setRefreshKey(k => k + 1)}
+          loading={loading}
+          className="text-sm"
+        />
       </div>
 
       {/* Stats Grid */}

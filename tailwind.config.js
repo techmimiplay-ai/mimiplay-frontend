@@ -4,6 +4,18 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
+    screens: {
+      'xs': '475px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+      '3xl': '1920px', // Large monitors
+      '4xl': '2560px', // 4K displays
+      'tv': '1920px',  // TV screens
+      'tv-4k': '3840px' // 4K TV screens
+    },
     extend: {
       colors: {
         // Alexi Color Palette
@@ -51,10 +63,46 @@ module.exports = {
         sans: ['Poppins', 'ui-sans-serif', 'system-ui'],
         display: ['Fredoka', 'cursive'],
       },
+      fontSize: {
+        // Enhanced font sizes for better TV readability
+        'xs': ['0.75rem', { lineHeight: '1rem' }],
+        'sm': ['0.875rem', { lineHeight: '1.25rem' }],
+        'base': ['1rem', { lineHeight: '1.5rem' }],
+        'lg': ['1.125rem', { lineHeight: '1.75rem' }],
+        'xl': ['1.25rem', { lineHeight: '1.75rem' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem' }],
+        '4xl': ['2.25rem', { lineHeight: '2.5rem' }],
+        '5xl': ['3rem', { lineHeight: '1' }],
+        '6xl': ['3.75rem', { lineHeight: '1' }],
+        '7xl': ['4.5rem', { lineHeight: '1' }],
+        '8xl': ['6rem', { lineHeight: '1' }],
+        '9xl': ['8rem', { lineHeight: '1' }],
+        // TV-specific font sizes
+        'tv-sm': ['1.5rem', { lineHeight: '2rem' }],
+        'tv-base': ['2rem', { lineHeight: '2.5rem' }],
+        'tv-lg': ['2.5rem', { lineHeight: '3rem' }],
+        'tv-xl': ['3rem', { lineHeight: '3.5rem' }],
+        'tv-2xl': ['4rem', { lineHeight: '4.5rem' }],
+        'tv-3xl': ['5rem', { lineHeight: '5.5rem' }],
+      },
       borderRadius: {
         'xl': '1rem',
         '2xl': '1.5rem',
         '3xl': '2rem',
+      },
+      spacing: {
+        // Enhanced spacing for TV screens
+        '18': '4.5rem',
+        '22': '5.5rem',
+        '26': '6.5rem',
+        '30': '7.5rem',
+        'tv-xs': '1rem',
+        'tv-sm': '2rem',
+        'tv-md': '3rem',
+        'tv-lg': '4rem',
+        'tv-xl': '6rem',
+        'tv-2xl': '8rem',
       },
       animation: {
         'float': 'float 3s ease-in-out infinite',
@@ -74,5 +122,36 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    function({ addUtilities }) {
+      const newUtilities = {
+        // TV-optimized text utilities
+        '.text-tv-readable': {
+          fontSize: '2rem',
+          lineHeight: '2.5rem',
+          fontWeight: '600',
+        },
+        '.text-tv-title': {
+          fontSize: '4rem',
+          lineHeight: '4.5rem',
+          fontWeight: '700',
+        },
+        // TV-optimized spacing
+        '.p-tv': {
+          padding: '3rem',
+        },
+        '.m-tv': {
+          margin: '3rem',
+        },
+        // TV-optimized interactive elements
+        '.btn-tv': {
+          padding: '1.5rem 3rem',
+          fontSize: '2rem',
+          borderRadius: '1.5rem',
+          minHeight: '4rem',
+        },
+      }
+      addUtilities(newUtilities, ['responsive'])
+    }
+  ],
 }

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts';
-import { Button, Input } from '../components/shared';
+import { Button, Input, ButtonLoading } from '../components/shared';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { API_BASE_URL } from '../config';
+import { API_ENDPOINTS } from '../config';
+import axios from 'axios';
+import { handleError } from '../utils/errorHandler';
+import { showToast } from '../utils/toast';
 
 const Login = () => {
   const navigate = useNavigate(); // ← ADD THIS
@@ -12,7 +15,6 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    rememberMe: false
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -57,36 +59,39 @@ const Login = () => {
     }
 
     setLoading(true);
+    setErrors({}); // Clear previous errors
 
     try {
-      const loginUrl = `${API_BASE_URL}/api/login`;
-      console.log("[Login] Attempting call to:", loginUrl);
+      console.log("[Login] Attempting call to:", API_ENDPOINTS.LOGIN);
       
-      const res = await fetch(loginUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: formData.email.toLowerCase(),
-          password: formData.password,
-        }),
+      const res = await axios.post(API_ENDPOINTS.LOGIN, {
+        email: formData.email.toLowerCase(),
+        password: formData.password,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.msg);
+      const data = res.data;
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", data.role);
       localStorage.setItem("userId", data.user_id);
+      localStorage.setItem("user", JSON.stringify({ name: data.name, email: formData.email.toLowerCase() }));
 
-      // Redirect based on role
-      if (data.role === "admin") navigate("/admin/dashboard");
-      else if (data.role === "teacher") navigate("/teacher/selection");
-      else if (data.role === "parent") navigate("/parent-selection");
+      showToast.success('Welcome back! Redirecting...');
+      
+      // Redirect all roles to the unified selection screen
+      navigate('/select');
 
     } catch (err) {
       console.error("[Login] Exception:", err);
-      setErrors({ general: err.message || "Something went wrong. Please check your connection." });
+      
+      // Handle specific error cases
+      if (err.response?.status === 403 && err.response?.data?.msg?.toLowerCase().includes('approval')) {
+        setErrors({ pending: true });
+      } else {
+        // Use centralized error handling
+        const errorInfo = handleError(err, { showToast: false });
+        setErrors({ general: errorInfo.message });
+      }
     } finally {
       setLoading(false);
     }
@@ -99,6 +104,23 @@ const Login = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         
+        {/* Pending approval banner */}
+        {errors.pending && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3"
+          >
+            <span className="text-xl">⏳</span>
+            <div>
+              <p className="text-sm font-bold text-amber-800">Account Pending Approval</p>
+              <p className="text-sm text-amber-700 mt-0.5">
+                Your account is waiting for admin approval. You'll be able to log in once approved.
+              </p>
+            </div>
+          </motion.div>
+        )}
+
         {/* General Error Message */}
         {errors.general && (
           <motion.div
@@ -170,20 +192,8 @@ const Login = () => {
           )}
         </div>
 
-        {/* Remember Me & Forgot Password */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              name="rememberMe"
-              checked={formData.rememberMe}
-              onChange={handleChange}
-              className="w-4 h-4 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
-            />
-            <span className="text-sm text-text">Remember me</span>
-          </label>
-
-          {/* ↓↓↓ UPDATED: Add onClick to navigate */}
+        {/* Forgot Password */}
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={() => navigate('/forgot-password')}
@@ -194,48 +204,18 @@ const Login = () => {
         </div>
 
         {/* Submit Button */}
-        <Button
+        <ButtonLoading
           type="submit"
-          variant="primary"
-          size="lg"
-          className="w-full"
           loading={loading}
+          loadingText="Signing in..."
+          className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 disabled:opacity-50"
         >
           Sign In
-        </Button>
-
-        {/* Divider */}
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-500">Or continue with</span>
-          </div>
-        </div>
-
-        {/* Social Login Buttons */}
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-200 rounded-2xl hover:bg-gray-50 transition-colors"
-          >
-            <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-            <span className="font-semibold text-text">Google</span>
-          </button>
-          <button
-            type="button"
-            className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-200 rounded-2xl hover:bg-gray-50 transition-colors"
-          >
-            <img src="https://www.microsoft.com/favicon.ico" alt="Microsoft" className="w-5 h-5" />
-            <span className="font-semibold text-text">Microsoft</span>
-          </button>
-        </div>
+        </ButtonLoading>
 
         {/* Register Link */}
         <p className="text-center text-sm text-text/60 mt-6">
           Don't have an account?{' '}
-          {/* ↓↓↓ UPDATED: Add onClick to navigate */}
           <button
             type="button"
             onClick={() => navigate('/register')}

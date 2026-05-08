@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Users, BarChart, CheckSquare, BookOpen, Settings, LogOut } from 'lucide-react';
+import { Home, Users, BarChart, CheckSquare, BookOpen, Settings, LogOut, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { API_BASE_URL } from '../../config';
+import { ResponsiveContainer } from '../../components/shared';
+import { performLogout } from '../../utils/auth';
 
 // Teacher Pages
 import TeacherHome from '../../components/teacher/dashboard/TeacherHome';
@@ -12,6 +14,8 @@ import ReportsTab from '../../components/teacher/reports/ReportsTab';
 import AttendanceTab from '../../components/teacher/attendance/AttendanceTab';
 import ActivitiesTab from '../../components/teacher/activities/ActivitiesTab';
 import SettingsTab from '../../components/teacher/settings/SettingsTab';
+import ChatHistory from '../../components/teacher/ChatHistory';
+import SelectionScreen from '../SelectionScreen';
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -41,12 +45,13 @@ const TeacherDashboard = () => {
   };
 
   const tabs = [
-    { path: '/teacher/home', icon: Home, label: 'Home', color: 'pink' },
-    { path: '/teacher/students', icon: Users, label: 'Students', color: 'blue' },
-    { path: '/teacher/activities', icon: BookOpen, label: 'Activities', color: 'green' },
-    { path: '/teacher/attendance', icon: CheckSquare, label: 'Attendance', color: 'yellow' },
-    { path: '/teacher/reports', icon: BarChart, label: 'Reports', color: 'orange' },
-    { path: '/teacher/settings', icon: Settings, label: 'Settings', color: 'gray' },
+    { path: '/teacher/home',       icon: Home,      label: 'Home',       color: 'pink'   },
+    { path: '/teacher/students',    icon: Users,     label: 'Students',   color: 'blue'   },
+    { path: '/teacher/activities',  icon: BookOpen,  label: 'Activities', color: 'green'  },
+    { path: '/teacher/chat-history', icon: MessageCircle, label: 'Chat History', color: 'purple' },
+    { path: '/teacher/attendance',  icon: CheckSquare, label: 'Attendance', color: 'yellow' },
+    { path: '/teacher/reports',     icon: BarChart,  label: 'Reports',    color: 'orange' },
+    { path: '/teacher/settings',    icon: Settings,  label: 'Settings',   color: 'gray'   },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -55,18 +60,14 @@ const TeacherDashboard = () => {
     navigate(tab.path);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('userId');
-    navigate('/login');
-  };
+  const handleLogout = () => performLogout(navigate);
 
   const getColorClasses = (color, active) => {
     const colors = {
       pink: active ? 'bg-pink-400 text-white shadow-pink-200' : 'bg-pink-100 text-pink-700 hover:bg-pink-200',
       blue: active ? 'bg-blue-400 text-white shadow-blue-200' : 'bg-blue-100 text-blue-700 hover:bg-blue-200',
       green: active ? 'bg-green-400 text-white shadow-green-200' : 'bg-green-100 text-green-700 hover:bg-green-200',
+      purple: active ? 'bg-purple-400 text-white shadow-purple-200' : 'bg-purple-100 text-purple-700 hover:bg-purple-200',
       yellow: active ? 'bg-yellow-400 text-white shadow-yellow-200' : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200',
       orange: active ? 'bg-orange-400 text-white shadow-orange-200' : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
       gray: active ? 'bg-gray-400 text-white shadow-gray-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
@@ -82,8 +83,8 @@ const TeacherDashboard = () => {
         <div className="flex items-center justify-between max-w-[1920px] mx-auto">
           {/* Logo Section */}
           <div className="flex items-center gap-2 md:gap-4">
-            <h1 className="text-2xl md:text-4xl font-display font-bold text-gradient select-none">Alexi</h1>
-            <span className="hidden xs:inline-block px-2 md:px-4 py-1 bg-purple-100 text-purple-700 rounded-xl md:rounded-2xl text-[10px] md:text-sm font-bold">
+            <h1 className="text-2xl md:text-4xl tv:text-6xl font-display font-bold text-gradient select-none">Alexi</h1>
+            <span className="hidden xs:inline-block px-2 md:px-4 tv:px-6 py-1 tv:py-2 bg-purple-100 text-purple-700 rounded-xl md:rounded-2xl tv:rounded-3xl text-[10px] md:text-sm tv:text-tv-sm font-bold">
               Teacher Portal 👩‍🏫
             </span>
           </div>
@@ -92,14 +93,14 @@ const TeacherDashboard = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {/* Profile Info - Desktop Only */}
             <div className="hidden lg:block text-right border-r-2 border-gray-100 pr-4 mr-2">
-              <p className="font-bold text-text text-sm">{teacherProfile.name}</p>
-              <p className="text-xs text-text/60">{teacherProfile.class}</p>
+              <p className="font-bold text-text text-sm tv:text-tv-base">{teacherProfile.name}</p>
+              <p className="text-xs tv:text-tv-sm text-text/60">{teacherProfile.class}</p>
             </div>
 
             {/* Logout Button */}
             <button
               onClick={handleLogout}
-              className="p-2 md:p-3 bg-red-100 hover:bg-red-500 hover:text-white text-red-600 rounded-xl md:rounded-2xl transition-all duration-300 group shadow-sm"
+              className="p-2 md:p-3 tv:p-6 bg-red-100 hover:bg-red-500 hover:text-white text-red-600 rounded-xl md:rounded-2xl tv:rounded-3xl transition-all duration-300 group shadow-sm"
               title="Logout"
             >
               <LogOut size={20} className="md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
@@ -111,7 +112,7 @@ const TeacherDashboard = () => {
       {/* --- Navigation Tabs --- */}
       <nav className="bg-white/60 backdrop-blur-md border-b-4 border-pink-200 px-4 md:px-8 py-3 sticky top-[68px] md:top-[84px] z-40">
 
-        {/* Mobile (SM): Row 1 - 3 tabs + Mimi Chat after Activities */}
+        {/* Mobile (SM): Row 1 - 3 tabs + Mimi Chat + Play after Activities */}
         <div className="flex gap-2 sm:hidden mb-2">
           {tabs.slice(0, 3).map((tab) => {
             const Icon = tab.icon;
@@ -133,16 +134,16 @@ const TeacherDashboard = () => {
             );
           })}
           <motion.button
-            onClick={() => navigate('/mimi-chat')}
+            onClick={() => navigate('/chat', { state: { mode: 'teacher' } })}
             whileTap={{ scale: 0.98 }}
             className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl font-bold transition-all text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 shadow-sm"
           >
             <span>🤖</span>
-            <span>Mimi</span>
+            <span>Chat</span>
           </motion.button>
         </div>
 
-        {/* Mobile (SM): Row 2 - 3 tabs */}
+        {/* Mobile (SM): Row 2 - 4 tabs + Play */}
         <div className="flex gap-2 sm:hidden">
           {tabs.slice(3).map((tab) => {
             const Icon = tab.icon;
@@ -163,6 +164,14 @@ const TeacherDashboard = () => {
               </motion.button>
             );
           })}
+          <motion.button
+            onClick={() => navigate('/teacher/selection')}
+            whileTap={{ scale: 0.98 }}
+            className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl font-bold transition-all text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-sm"
+          >
+            <span>🎮</span>
+            <span>Play</span>
+          </motion.button>
         </div>
 
         {/* Tablet & Desktop (SM+): Normal flex row */}
@@ -186,15 +195,26 @@ const TeacherDashboard = () => {
                   <span>{tab.label}</span>
                 </motion.button>
                 {tab.path === '/teacher/activities' && (
-                  <motion.button
-                    onClick={() => navigate('/mimi-chat')}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold transition-all whitespace-nowrap text-sm md:text-base bg-indigo-100 text-indigo-700 hover:bg-indigo-200 shadow-sm"
-                  >
-                    <span>🤖</span>
-                    <span>Mimi Chat</span>
-                  </motion.button>
+                  <>
+                    <motion.button
+                      onClick={() => navigate('/chat', { state: { mode: 'teacher' } })}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold transition-all whitespace-nowrap text-sm md:text-base bg-indigo-100 text-indigo-700 hover:bg-indigo-200 shadow-sm"
+                    >
+                      <span>🤖</span>
+                      <span>Mimi Chat</span>
+                    </motion.button>
+                    <motion.button
+                      onClick={() => navigate('/teacher/selection')}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-2 md:gap-3 px-4 md:px-6 py-2.5 md:py-3 rounded-xl md:rounded-2xl font-bold transition-all whitespace-nowrap text-sm md:text-base bg-orange-100 text-orange-700 hover:bg-orange-200 shadow-sm"
+                    >
+                      <span>🎮</span>
+                      <span>Play</span>
+                    </motion.button>
+                  </>
                 )}
               </React.Fragment>
             );
@@ -217,10 +237,12 @@ const TeacherDashboard = () => {
               <Route path="/" element={<Navigate to="home" replace />} />
               <Route path="home" element={<TeacherHome />} />
               <Route path="students" element={<StudentList />} />
+              <Route path="chat-history" element={<ChatHistory />} />
               <Route path="reports" element={<ReportsTab />} />
               <Route path="attendance" element={<AttendanceTab />} />
-              <Route path="activities" element={<ActivitiesTab />} />
+              <Route path="activities" element={<ActivitiesTab mode="teacher" />} />
               <Route path="settings" element={<SettingsTab />} />
+              <Route path="selection" element={<SelectionScreen />} />
             </Routes>
           </motion.div>
         </AnimatePresence>

@@ -15,13 +15,16 @@
  *     the overlay.
  */
 
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useEffect } from 'react';
 import axios from 'axios';
-import { Button, Card, Modal } from '../../../components/shared';
+import { Button, Card, Modal, ButtonLoading, FormLoading } from '../../../components/shared';
 import { Play, Settings, Clock, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { API_BASE_URL, API_ENDPOINTS } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
 import { useStars } from '../../../context/StarContext';
+import { apiRequest } from '../../../utils/api';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 import LOG from './logger';
 import ACTIVITIES from './data/activities';
@@ -67,18 +70,54 @@ const STATS_CARDS = (activities) => [
 ];
 
 /* ── ActivitiesTab ────────────────────────────────────────────── */
-const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
+// mode: 'teacher' | 'parent' | 'admin'
+// isParentMode kept for backward compat — old callers still work
+const ActivitiesTab = ({ mode, isParentMode = false, childName = '' }) => {
+  const resolvedMode = mode || (isParentMode ? 'parent' : 'teacher');
+  const isAdminMode  = resolvedMode === 'admin';
+  const isParent     = resolvedMode === 'parent';
   const { addActivityResult } = useStars();
 
+  const [activityStats,      setActivityStats]      = useState({});
   const [showConfigModal,    setShowConfigModal]    = useState(false);
   const [selectedActivity,   setSelectedActivity]   = useState(null);
   const [runningActivity,    setRunningActivity]     = useState(null);
   const [runningDifficulty,  setRunningDifficulty]  = useState('easy');
   const [lastResult,         setLastResult]          = useState(null);
   const [showBanner,         setShowBanner]          = useState(false);
-  const [activityConfig, setActivityConfig] = useState(() => {
+  const [activityConfig,     setActivityConfig]      = useState(() => {
     try { return JSON.parse(localStorage.getItem('activityConfig') || '{}'); } catch { return {}; }
   });
+
+  // Keep localStorage in sync whenever activityConfig changes — fixes stale closure on save
+  const updateActivityConfig = useCallback((updater) => {
+    setActivityConfig(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      localStorage.setItem('activityConfig', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  // Fetch real stats from backend — teacher only, skip for parent/admin
+  useEffect(() => {
+    if (isParent || isAdminMode) return;
+    apiToast.operation(
+      () => apiRequest('get', API_ENDPOINTS.TEACHER_ACTIVITY_STATS),
+      {
+        loading: 'Loading activity stats...',
+        error: 'Failed to load activity stats'
+      }
+    )
+      .then(data => { if (data?.stats) setActivityStats(data.stats); })
+      .catch(() => {});
+  }, [isParent, isAdminMode]);
+
+  // Merge live stats into static activity list
+  const activities = ACTIVITIES.map(a => ({
+    ...a,
+    studentsCompleted: activityStats[a.id]?.studentsCompleted ?? a.studentsCompleted,
+    avgScore:          activityStats[a.id]?.avgScore          ?? a.avgScore,
+  }));
 
   /* ── Start activity ─────────────────────────────────────────── */
   const handleStartActivity = useCallback((activity) => {
@@ -90,9 +129,17 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
   }, [activityConfig]);
 
   /* ── Student done callback ──────────────────────────────────── */
-  const handleStudentDone = useCallback(async ({ stars, score, studentName }) => {
+  const handleStudentDone = useCallback(async ({ stars, score, studentName, qa = [] }) => {
     const act = runningActivity;
-    LOG.info('ActivitiesTab', 'Student done', { studentName, stars, score });
+    LOG.info('ActivitiesTab', 'Student done', { studentName, stars, score, mode: resolvedMode });
+
+    // Admin test mode — no DB saves, no ID lookup
+    if (isAdminMode) {
+      setLastResult({ stars, score, studentName, activityName: act?.name });
+      setShowBanner(true);
+      setTimeout(() => setShowBanner(false), 5000);
+      return;
+    }
 
     // Resolve student ID — try exact name first, then title-cased fallback
     let studentId = null;
@@ -100,7 +147,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
       studentName,
       studentName.trim(),
       studentName.trim().replace(/\b\w/g, c => c.toUpperCase()),
-    ].filter((v, i, a) => a.indexOf(v) === i); // dedupe
+    ].filter((v, i, a) => a.indexOf(v) === i);
 
     for (const name of namesToTry) {
       try {
@@ -115,11 +162,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
       }
     }
 
-    if (!studentId) {
-      LOG.warn('ActivitiesTab', 'Could not resolve student ID for', studentName);
-    }
-
-    // Always update StarContext — use real ID when available, name as last resort
+    // Always update StarContext
     addActivityResult({
       studentId: studentId ?? studentName,
       studentName,
@@ -130,14 +173,18 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
 
     // Persist to backend only when we have a valid DB id
     if (studentId) {
-      const token = localStorage.getItem('token');
-      axios.post(`${API_BASE_URL}/save-activity-result`, {
-        student_id: studentId, student_name: studentName,
-        activity_id: act?.id ?? 0, activity_name: act?.name ?? 'Activity',
-        stars, score,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      apiToast.operation(
+        () => apiRequest('post', API_ENDPOINTS.ACTIVITY_SAVE_RESULT, {
+          student_id: studentId, student_name: studentName,
+          activity_id: act?.id ?? 0, activity_name: act?.name ?? 'Activity',
+          stars, score, qa,
+        }),
+        {
+          loading: 'Saving activity result...',
+          success: 'Activity result saved successfully!',
+          error: 'Failed to save activity result'
+        }
+      )
         .then(() => window.dispatchEvent(new Event('activity-result-saved')))
         .catch(e => LOG.warn('ActivitiesTab', 'Save failed', e.message));
     }
@@ -145,7 +192,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
     setLastResult({ stars, score, studentName, activityName: act?.name });
     setShowBanner(true);
     setTimeout(() => setShowBanner(false), 5000);
-  }, [addActivityResult, runningActivity]);
+  }, [addActivityResult, runningActivity, resolvedMode, isAdminMode]);
 
   /* ── Close overlay ──────────────────────────────────────────── */
   const handleClose = useCallback(() => {
@@ -154,7 +201,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
   }, []);
 
   /* ── Derived ────────────────────────────────────────────────── */
-  const stats = STATS_CARDS(ACTIVITIES);
+  const stats = STATS_CARDS(activities);
   const getConfig = (id) => activityConfig[id] || { difficulty: 'easy', timeLimit: 15, numQuestions: 10 };
 
   /* ── Render ─────────────────────────────────────────────────── */
@@ -167,7 +214,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
           difficulty={runningDifficulty}
           onStudentDone={handleStudentDone}
           onClose={handleClose}
-          isParentMode={isParentMode}
+          mode={resolvedMode}
           childName={childName}
         />
       )}
@@ -211,7 +258,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
 
         {/* Activity grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ACTIVITIES.map((activity, index) => {
+          {activities.map((activity, index) => {
             const cfg     = getConfig(activity.id);
             const diff    = cfg.difficulty;
             const diffCfg = DIFFICULTY_CFG[diff];
@@ -262,14 +309,14 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="primary" icon={Play} className="flex-1"
+                    <ButtonLoading variant="primary" icon={Play} className="flex-1"
                       onClick={() => handleStartActivity(activity)}>
                       Start
-                    </Button>
-                    <Button variant="outline" icon={Settings}
+                    </ButtonLoading>
+                    <ButtonLoading variant="outline" icon={Settings}
                       onClick={() => { setSelectedActivity(activity); setShowConfigModal(true); }}>
                       Config
-                    </Button>
+                    </ButtonLoading>
                   </div>
                 </Card>
               </motion.div>
@@ -286,7 +333,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
                 <label className="block text-sm font-semibold text-text mb-2">Difficulty Level</label>
                 <select
                   value={getConfig(selectedActivity.id).difficulty}
-                  onChange={e => setActivityConfig(prev => ({
+                  onChange={e => updateActivityConfig(prev => ({
                     ...prev,
                     [selectedActivity.id]: { ...getConfig(selectedActivity.id), difficulty: e.target.value },
                   }))}
@@ -301,7 +348,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
                 <label className="block text-sm font-semibold text-text mb-2">Time Limit (minutes)</label>
                 <input type="number" min={1} max={60}
                   value={getConfig(selectedActivity.id).timeLimit}
-                  onChange={e => setActivityConfig(prev => ({
+                  onChange={e => updateActivityConfig(prev => ({
                     ...prev,
                     [selectedActivity.id]: { ...getConfig(selectedActivity.id), timeLimit: Number(e.target.value) },
                   }))}
@@ -311,7 +358,7 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
                 <label className="block text-sm font-semibold text-text mb-2">Number of Questions</label>
                 <input type="number" min={1} max={20}
                   value={getConfig(selectedActivity.id).numQuestions}
-                  onChange={e => setActivityConfig(prev => ({
+                  onChange={e => updateActivityConfig(prev => ({
                     ...prev,
                     [selectedActivity.id]: { ...getConfig(selectedActivity.id), numQuestions: Number(e.target.value) },
                   }))}
@@ -329,15 +376,12 @@ const ActivitiesTab = ({ isParentMode = false, childName = '' }) => {
                 <p className="text-sm text-amber-800">ℹ️ Settings apply the next time this activity is launched.</p>
               </div>
               <div className="flex gap-3">
-                <Button variant="primary" className="flex-1" onClick={() => {
-                  localStorage.setItem('activityConfig', JSON.stringify(activityConfig));
-                  setShowConfigModal(false);
-                }}>
+                <ButtonLoading variant="primary" className="flex-1" onClick={() => setShowConfigModal(false)}>
                   Save Settings
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={() => setShowConfigModal(false)}>
+                </ButtonLoading>
+                <ButtonLoading variant="outline" className="flex-1" onClick={() => setShowConfigModal(false)}>
                   Cancel
-                </Button>
+                </ButtonLoading>
               </div>
             </div>
           </Modal>

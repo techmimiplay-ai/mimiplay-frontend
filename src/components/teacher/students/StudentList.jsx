@@ -6,7 +6,8 @@ import { Search, Plus, Edit2, Trash2, Eye, Mail, Phone, MessageSquare, Star, Cam
 import { motion } from 'framer-motion';
 import { useStars } from '../../../context/StarContext';
 import { useToast } from '../../../context/ToastContext';
-import { API_BASE_URL, API_ENDPOINTS } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
  
 const StudentList = () => {
   const { getTotalStars, getTodayStars, getTodayActivities, getStudentResults } = useStars();
@@ -26,11 +27,9 @@ const StudentList = () => {
  
   const fetchParents = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/api/teacher/all-parents`, {
-        headers: getAuthHeaders()
-      });
-      if (Array.isArray(res.data)) {
-        setParents(res.data);
+      const res = await apiRequest('get', API_ENDPOINTS.TEACHER_ALL_PARENTS);
+      if (Array.isArray(res)) {
+        setParents(res);
       }
     } catch (err) {
       console.error('Parents fetch error:', err);
@@ -40,11 +39,9 @@ const StudentList = () => {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/api/admin/all-students-with-stats`, {
-        headers: getAuthHeaders()
-      });
+      const res = await apiRequest('get', API_ENDPOINTS.ADMIN_ALL_STUDENTS_WITH_STATS);
  
-      const formatted = res.data.map((s, index) => ({
+      const formatted = res.map((s, index) => ({
         id: s._id,
         studentId: s._id,
         mongoId: s._id,
@@ -73,12 +70,15 @@ const StudentList = () => {
  
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddParentModal, setShowAddParentModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
   const [reviewText, setReviewText] = useState('');
+  const [existingReviewId, setExistingReviewId] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
  
   // ── Add form state ──────────────────────────────────────────────────────────
   const [formData, setFormData] = useState({
@@ -146,20 +146,16 @@ const StudentList = () => {
  
     try {
       // STEP 1: Student DB mein save karo
-      await axios.post(
-        `${API_BASE_URL}/api/admin/add-student`,
-        {
-          name: formData.name,
-          rollNumber: formData.rollNo,
-          age: formData.age,
-          class: formData.class,
-          parentName: formData.parentName,
-          parent_id: formData.parentId,
-          email: formData.parentEmail,
-          phone: formData.parentPhone,
-        },
-        { headers: getAuthHeaders() }
-      );
+      await apiRequest('post', API_ENDPOINTS.ADMIN_ADD_STUDENT, {
+        name: formData.name,
+        rollNumber: formData.rollNo,
+        age: formData.age,
+        class: formData.class,
+        parentName: formData.parentName,
+        parent_id: formData.parentId,
+        email: formData.parentEmail,
+        phone: formData.parentPhone,
+      });
 
       // STEP 2: Agar photo select ki hai toh face register karo
       if (formData.avatar) {
@@ -168,19 +164,15 @@ const StudentList = () => {
         try {
           const base64Image = await fileToBase64(formData.avatar);
 
-          const faceRes = await axios.post(
-            API_ENDPOINTS.REGISTER_FACE,
-            {
-              name: formData.name,
-              image: base64Image,
-            },
-            { headers: getAuthHeaders() }
-          );
+          const faceRes = await apiRequest('post', API_ENDPOINTS.REGISTER_FACE, {
+            name: formData.name,
+            image: base64Image,
+          });
 
-          if (faceRes.data.status === 'error') {
+          if (faceRes.status === 'error') {
             await fetchStudents();
             resetForm();
-            toast(`Student added! Face registration failed: ${faceRes.data.message}`, 'warning');
+            toast(`Student added! Face registration failed: ${faceRes.message}`, 'warning');
             return;
           }
 
@@ -218,6 +210,29 @@ const StudentList = () => {
     setFormData({ name: '', rollNo: '', age: '', class: '', parentId: '', parentName: '', parentEmail: '', parentPhone: '', avatar: null });
     setShowAddModal(false);
   };
+
+  // ── Add Parent form ─────────────────────────────────────────────────────────
+  const [parentForm, setParentForm] = useState({ name: '', email: '', phone: '', password: '', childName: '', rollNumber: '' });
+  const [addingParent, setAddingParent] = useState(false);
+
+  const handleAddParent = async () => {
+    if (!parentForm.name.trim() || !parentForm.email.trim() || !parentForm.password.trim()) {
+      toast('Name, email and password are required', 'error');
+      return;
+    }
+    setAddingParent(true);
+    try {
+      await apiRequest('post', API_ENDPOINTS.TEACHER_ADD_PARENT, parentForm);
+      toast('Parent added and auto-approved!', 'success');
+      setParentForm({ name: '', email: '', phone: '', password: '', childName: '', rollNumber: '' });
+      setShowAddParentModal(false);
+      fetchParents(); // refresh dropdown
+    } catch (err) {
+      toast(`Could not add parent: ${err.response?.data?.message || err.message}`, 'error');
+    } finally {
+      setAddingParent(false);
+    }
+  };
  
   const getSubmitLabel = () => {
     if (submitStatus === 'adding') return 'Adding Student...';
@@ -228,12 +243,30 @@ const StudentList = () => {
   // ── Other handlers ──────────────────────────────────────────────────────────
   const handleViewStudent = (s) => { setSelectedStudent(s); setShowViewModal(true); };
   const handleEditStudent = (s) => { setSelectedStudent(s); setShowEditModal(true); };
-  const handleAddReview = (s) => { setSelectedStudent(s); setReviewText(''); setShowReviewModal(true); };
+  const handleAddReview = async (s) => {
+    setSelectedStudent(s);
+    setReviewText('');
+    setExistingReviewId(null);
+    setReviewLoading(true);
+    setShowReviewModal(true);
+    try {
+      const res = await apiRequest('get', API_ENDPOINTS.TEACHER_GET_REVIEWS(s.studentId));
+      if (res?.status === 'success' && res.reviews?.length > 0) {
+        const latest = res.reviews[0];
+        setReviewText(latest.review);
+        setExistingReviewId(latest.id);
+      }
+    } catch (err) {
+      console.error('Fetch reviews error:', err);
+    } finally {
+      setReviewLoading(false);
+    }
+  };
   const handleDeleteStudent = async (id) => {
     confirmAction('Are you sure you want to remove this student?', async () => {
       closeConfirm();
       try {
-        await axios.delete(`${API_BASE_URL}/api/admin/delete-student/${id}`, { headers: getAuthHeaders() });
+        await apiRequest('delete', API_ENDPOINTS.ADMIN_DELETE_STUDENT(id));
         setStudents(prev => prev.filter(s => s.id !== id));
         toast('Student removed.', 'success');
       } catch (err) {
@@ -244,18 +277,14 @@ const StudentList = () => {
   };
   const handleSaveStudent = async (updatedData) => {
     try {
-      await axios.put(
-        `${API_BASE_URL}/api/admin/edit-student/${selectedStudent.studentId}`,
-        {
-          name:        updatedData.name,
-          rollNumber:  updatedData.rollNo,
-          parentName:  updatedData.parentName,
-          email:       updatedData.parentEmail,
-          phone:       updatedData.parentPhone,
-          parent_id:   updatedData.parentId || undefined,
-        },
-        { headers: getAuthHeaders() }
-      );
+      await apiRequest('put', API_ENDPOINTS.ADMIN_EDIT_STUDENT(selectedStudent.studentId), {
+        name:        updatedData.name,
+        rollNumber:  updatedData.rollNo,
+        parentName:  updatedData.parentName,
+        email:       updatedData.parentEmail,
+        phone:       updatedData.parentPhone,
+        parent_id:   updatedData.parentId || undefined,
+      });
       setStudents(prev => prev.map(s =>
         s.id === selectedStudent.id ? { ...s, ...updatedData } : s
       ));
@@ -271,17 +300,22 @@ const StudentList = () => {
   const submitReview = async () => {
     if (!reviewText.trim()) return;
     try {
-      await axios.post(`${API_BASE_URL}/api/teacher/add-review`, {
-        student_id: selectedStudent.studentId,
-        student_name: selectedStudent.name,
-        review: reviewText,
-      }, { headers: getAuthHeaders() });
+      if (existingReviewId) {
+        await apiRequest('put', API_ENDPOINTS.TEACHER_UPDATE_REVIEW(existingReviewId), { review: reviewText });
+      } else {
+        await apiRequest('post', API_ENDPOINTS.TEACHER_ADD_REVIEW, {
+          student_id: selectedStudent.studentId,
+          student_name: selectedStudent.name,
+          review: reviewText,
+        });
+      }
       setShowReviewModal(false);
       setReviewText('');
+      setExistingReviewId(null);
       setSelectedStudent(null);
     } catch (err) {
       console.error('Review error:', err);
-      alert(`❌ Could not save review: ${err.response?.data?.msg || err.message}`);
+      toast(`Could not save review: ${err.response?.data?.msg || err.message}`, 'error');
     }
   };
  
@@ -310,9 +344,14 @@ const StudentList = () => {
           <h1 className="text-4xl font-bold text-text mb-2">Students</h1>
           <p className="text-text/60">Manage your classroom students</p>
         </div>
-        <Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
-          Add Student
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" icon={Plus} onClick={() => setShowAddParentModal(true)}>
+            Add Parent
+          </Button>
+          <Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
+            Add Student
+          </Button>
+        </div>
       </div>
  
       {/* Stats Cards */}
@@ -503,7 +542,7 @@ const StudentList = () => {
           {/* ── Parent Dropdown ── */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
-              Parent
+              Link to Parent Account
             </label>
             <div className="relative">
               <svg className="absolute left-4 top-3.5 text-gray-400 w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -512,30 +551,14 @@ const StudentList = () => {
                 value={formData.parentId}
                 onChange={handleParentChange}
               >
-                <option value="">Select Parent (auto-fills email & phone)</option>
+                <option value="">Select Parent Account</option>
                 {parents.map((p) => (
-                  <option key={p._id} value={p._id}>{p.name}</option>
+                  <option key={p._id} value={p._id}>{p.name} — {p.email}</option>
                 ))}
               </select>
             </div>
+            <p className="text-xs text-text/50">Don't see the parent? Use <strong>Add Parent</strong> first.</p>
           </div>
- 
-          <Input
-            label="Parent Email"
-            type="email"
-            icon={Mail}
-            placeholder="parent@email.com"
-            value={formData.parentEmail}
-            onChange={(e) => setFormData({ ...formData, parentEmail: e.target.value })}
-          />
-          <Input
-            label="Parent Phone"
-            type="tel"
-            icon={Phone}
-            placeholder="Phone number"
-            value={formData.parentPhone}
-            onChange={(e) => setFormData({ ...formData, parentPhone: e.target.value })}
-          />
  
           {/* ── PHOTO UPLOAD ── */}
           <div>
@@ -685,21 +708,60 @@ const StudentList = () => {
       />
  
       {/* ── Review Modal ───────────────────────────────────────────────────────── */}
-      <Modal isOpen={showReviewModal} onClose={() => setShowReviewModal(false)} title={`Add Review for ${selectedStudent?.name}`} size="md">
+      <Modal isOpen={showReviewModal} onClose={() => setShowReviewModal(false)} title={existingReviewId ? `Edit Review — ${selectedStudent?.name}` : `Add Review — ${selectedStudent?.name}`} size="md">
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-text mb-2">Review Notes</label>
-            <textarea
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              placeholder="Write your review or notes for this student..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-400 resize-none"
-              rows="4"
-            />
+          {reviewLoading ? (
+            <div className="text-center py-6 text-text/50">Loading existing review…</div>
+          ) : (
+            <>
+              {existingReviewId && (
+                <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-semibold">
+                  ✏️ Editing your most recent review for this student
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-semibold text-text mb-2">Review Notes</label>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Write your review or notes for this student..."
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-400 resize-none"
+                  rows="4"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button variant="primary" onClick={submitReview} className="flex-1">
+                  {existingReviewId ? 'Update Review' : 'Submit Review'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowReviewModal(false)} className="flex-1">Cancel</Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+      {/* ── Add Parent Modal ───────────────────────────────────────────────────────── */}
+      <Modal isOpen={showAddParentModal} onClose={() => setShowAddParentModal(false)} title="Add Parent (Auto-Approved)" size="md">
+        <div className="space-y-4">
+          <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-xl text-xs text-green-700 font-semibold">
+            ✅ Parents added by teacher are automatically approved — no admin action needed
           </div>
+          <Input label="Full Name *" placeholder="Parent full name" value={parentForm.name}
+            onChange={e => setParentForm({ ...parentForm, name: e.target.value })} />
+          <Input label="Email *" type="email" placeholder="parent@email.com" value={parentForm.email}
+            onChange={e => setParentForm({ ...parentForm, email: e.target.value })} />
+          <Input label="Phone" type="tel" placeholder="Phone number" value={parentForm.phone}
+            onChange={e => setParentForm({ ...parentForm, phone: e.target.value })} />
+          <Input label="Password *" type="password" placeholder="Set a login password" value={parentForm.password}
+            onChange={e => setParentForm({ ...parentForm, password: e.target.value })} />
+          <Input label="Child Name" placeholder="Student's name" value={parentForm.childName}
+            onChange={e => setParentForm({ ...parentForm, childName: e.target.value })} />
+          <Input label="Roll Number" placeholder="Student's roll number" value={parentForm.rollNumber}
+            onChange={e => setParentForm({ ...parentForm, rollNumber: e.target.value })} />
           <div className="flex gap-3">
-            <Button variant="primary" onClick={submitReview} className="flex-1">Submit Review</Button>
-            <Button variant="outline" onClick={() => setShowReviewModal(false)} className="flex-1">Cancel</Button>
+            <Button variant="primary" onClick={handleAddParent} className="flex-1" disabled={addingParent}>
+              {addingParent ? 'Adding...' : 'Add Parent'}
+            </Button>
+            <Button variant="outline" onClick={() => setShowAddParentModal(false)} className="flex-1">Cancel</Button>
           </div>
         </div>
       </Modal>

@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom'; // ← ADD THIS
+import { useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../layouts';
-import { Button, Input } from '../components/shared';
+import { Button, Input, ButtonLoading, FormLoading } from '../components/shared';
 import { User, Mail, Lock, Phone, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { API_BASE_URL } from '../config';
+import { API_ENDPOINTS } from '../config';
+import axios from 'axios';
+import { handleError } from '../utils/errorHandler';
+import { showToast, apiToast } from '../utils/toast.jsx';
 
 const Register = () => {
-  const navigate = useNavigate(); // ← ADD THIS
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -89,38 +92,30 @@ const Register = () => {
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      showToast.warning('Please fix the errors below');
       return;
     }
     
     setLoading(true);
     
-    // setTimeout(() => {
-    //   console.log('Register data:', formData);
-    //   alert('Registration successful! (Pending admin approval)');
-      
-    //   // ↓↓↓ UPDATED: Navigate to login after successful registration
-    //   navigate('/login');
-      
-    //   setLoading(false);
-    // }, 1500);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await apiToast.operation(
+        () => axios.post(API_ENDPOINTS.REGISTER, {
           ...formData,
           email: formData.email.toLowerCase()
         }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.msg);
-
-      alert("Registered! Wait for admin approval.");
-      navigate("/login");
+        {
+          loading: 'Creating your account...',
+          success: 'Account created successfully! Pending admin approval.',
+          error: 'Failed to create account. Please try again.'
+        }
+      );
+      
+      setTimeout(() => navigate('/login'), 2000);
+      
     } catch (err) {
-      alert(err.message);
+      console.error('Registration error:', err);
+      // Error already handled by apiToast
     } finally {
       setLoading(false);
     }
@@ -131,7 +126,8 @@ const Register = () => {
       title="Create Account"
       subtitle="Join Alexi Smart Learning Platform"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <FormLoading loading={loading}>
+        <form onSubmit={handleSubmit} className="space-y-4">
         
         {/* Full Name */}
         <Input
@@ -186,7 +182,7 @@ const Register = () => {
                 }
               `}
             >
-              👨‍🏫 Teacher
+              👨🏫 Teacher
             </button>
             <button
               type="button"
@@ -199,7 +195,7 @@ const Register = () => {
                 }
               `}
             >
-              👨‍👩‍👧 Parent
+              👨👩👧 Parent
             </button>
           </div>
         </div>
@@ -284,14 +280,7 @@ const Register = () => {
               className="w-4 h-4 mt-1 rounded border-gray-300 text-primary-500 focus:ring-primary-400"
             />
             <span className="text-sm text-text">
-              I agree to the{' '}
-              <button type="button" className="text-primary-600 font-semibold">
-                Terms & Conditions
-              </button>{' '}
-              and{' '}
-              <button type="button" className="text-primary-600 font-semibold">
-                Privacy Policy
-              </button>
+              I agree to the Terms & Conditions and Privacy Policy
             </span>
           </label>
           {errors.agreeToTerms && (
@@ -306,15 +295,14 @@ const Register = () => {
         </div>
         
         {/* Submit Button */}
-        <Button
+        <ButtonLoading
           type="submit"
-          variant="primary"
-          size="lg"
-          className="w-full"
           loading={loading}
+          loadingText="Creating Account..."
+          className="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-6 rounded-2xl transition-all duration-200 disabled:opacity-50"
         >
           Create Account
-        </Button>
+        </ButtonLoading>
         
         {/* Info Message */}
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
@@ -326,7 +314,6 @@ const Register = () => {
         {/* Login Link */}
         <p className="text-center text-sm text-text/60 mt-6">
           Already have an account?{' '}
-          {/* ↓↓↓ UPDATED: Add onClick to navigate */}
           <button
             type="button"
             onClick={() => navigate('/login')}
@@ -336,6 +323,7 @@ const Register = () => {
           </button>
         </p>
       </form>
+      </FormLoading>
     </AuthLayout>
   );
 };

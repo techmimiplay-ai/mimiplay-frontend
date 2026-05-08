@@ -5,37 +5,41 @@
  * array reference is stable across renders — critical for
  * React.memo() on MimiActivityOverlay to bail out correctly.
  *
+ * studentsCompleted and avgScore start at 0 — real values are
+ * fetched from /api/teacher/activity-stats and merged in
+ * TeacherDashboard / ActivitiesTab.
+ *
  * IMPORTANT: Never move this inside a React component.
  */
 const ACTIVITIES = [
   {
     id: 1, name: 'Alphabet Practice', icon: '🔤', category: 'Alphabets',
-    avgTime: '15 min', studentsCompleted: 156, avgScore: 4.5,
+    avgTime: '15 min', studentsCompleted: 0, avgScore: 0,
     description: 'Learn and practice letters with pronunciation and examples',
   },
   {
     id: 2, name: 'Phonics Basics', icon: '🔊', category: 'Phonics',
-    avgTime: '12 min', studentsCompleted: 128, avgScore: 4.0,
+    avgTime: '12 min', studentsCompleted: 0, avgScore: 0,
     description: 'Understanding letter sounds and phonetic patterns',
   },
   {
     id: 3, name: 'Fruits Recognition', icon: '🍎', category: 'Objects',
-    avgTime: '10 min', studentsCompleted: 142, avgScore: 4.2,
+    avgTime: '10 min', studentsCompleted: 0, avgScore: 0,
     description: 'Identify and name common fruits with visual aids',
   },
   {
     id: 4, name: 'Animal Names', icon: '🐾', category: 'Objects',
-    avgTime: '8 min', studentsCompleted: 134, avgScore: 4.6,
+    avgTime: '8 min', studentsCompleted: 0, avgScore: 0,
     description: 'Learn animal names and their sounds',
   },
   {
     id: 5, name: 'Colors Matching', icon: '🎨', category: 'Colors',
-    avgTime: '10 min', studentsCompleted: 145, avgScore: 4.8,
+    avgTime: '10 min', studentsCompleted: 0, avgScore: 0,
     description: 'Match objects with their colors',
   },
   {
     id: 6, name: 'Number Counting', icon: '🔢', category: 'Numbers',
-    avgTime: '12 min', studentsCompleted: 138, avgScore: 4.3,
+    avgTime: '12 min', studentsCompleted: 0, avgScore: 0,
     description: 'Count objects and recognize numbers 1–10+',
   },
   {

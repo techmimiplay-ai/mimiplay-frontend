@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Modal, Button, Input, FileUpload } from '../../shared';
 import { Save, X } from 'lucide-react';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
 
 const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
   const [formData, setFormData] = useState({
@@ -21,9 +22,15 @@ const StudentEditModal = ({ isOpen, onClose, student, onSave }) => {
   // Fetch approved parents for dropdown
   useEffect(() => {
     if (!isOpen) return;
-    axios.get(`${API_BASE_URL}/api/teacher/all-parents`)
-      .then(res => { if (Array.isArray(res.data)) setParents(res.data); })
-      .catch(() => {});
+    const fetchParents = async () => {
+      try {
+        const data = await apiRequest('get', API_ENDPOINTS.TEACHER_ALL_PARENTS);
+        if (Array.isArray(data)) setParents(data);
+      } catch (err) {
+        console.error('Parents fetch error:', err);
+      }
+    };
+    fetchParents();
   }, [isOpen]);
 
   useEffect(() => {

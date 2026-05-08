@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal } from '../../../components/shared';
+import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal, ButtonLoading, FormLoading } from '../../../components/shared';
 import { Search, Eye, Mail, Phone, User, CheckCircle, Plus, Pencil, Upload, Camera, X, Loader } from 'lucide-react';
 import axios from 'axios';
-import { API_BASE_URL, getAuthHeaders, API_ENDPOINTS } from '../../../config';
-import { useToast } from '../../../context/ToastContext';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const StudentManagement = () => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -24,13 +26,12 @@ const StudentManagement = () => {
     const [photoFile, setPhotoFile] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitStatus, setSubmitStatus] = useState(''); // '', 'adding', 'registering_face', 'done', 'error'
+    const [submitStatus, setSubmitStatus] = useState('');
     const fileInputRef = useRef(null);
     const [editPhotoFile, setEditPhotoFile] = useState(null);
     const [editPhotoPreview, setEditPhotoPreview] = useState(null);
     const [isEditSubmitting, setIsEditSubmitting] = useState(false);
     const editFileInputRef = useRef(null);
-    const toast = useToast();
 
     const [formData, setFormData] = useState({
         studentName: '',
@@ -43,9 +44,18 @@ const StudentManagement = () => {
 
     const fetchStudents = async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/admin/all-students`, { headers: getAuthHeaders() });
-            const data = res.data;
-            if (!Array.isArray(data)) { console.error('Students fetch error:', data); setLoading(false); return; }
+            const data = await apiToast.operation(
+                () => apiRequest('get', API_ENDPOINTS.ADMIN_ALL_STUDENTS),
+                {
+                    loading: 'Loading students...',
+                    error: 'Failed to load students'
+                }
+            );
+            if (!Array.isArray(data)) { 
+                console.error('Students fetch error:', data); 
+                setLoading(false); 
+                return; 
+            }
             const formatted = data.map(s => ({
                 id: s._id, studentName: s.name, studentClass: s.class,
                 parentName: s.parent_name || 'N/A', parentId: s.parent_id || '',
@@ -64,8 +74,7 @@ const StudentManagement = () => {
 
     const fetchParents = async () => {
         try {
-            const res = await axios.get(`${API_BASE_URL}/api/admin/all-users`, { headers: getAuthHeaders() });
-            const data = res.data;
+            const data = await apiRequest('get', API_ENDPOINTS.ADMIN_ALL_USERS);
             if (!Array.isArray(data)) { console.error('Parents fetch error:', data); return; }
             setParents(data.filter(u => u.role === 'parent'));
         } catch (err) {
@@ -85,21 +94,18 @@ const StudentManagement = () => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
-            toast('Please select an image file (JPG, PNG, etc.)', 'error');
+            showToast.warning('Please select an image file (JPG, PNG, etc.)');
             return;
         }
 
-        // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
-            toast('Image size should be less than 5MB', 'error');
+            showToast.warning('Image size should be less than 5MB');
             return;
         }
 
         setPhotoFile(file);
 
-        // Create preview
         const reader = new FileReader();
         reader.onloadend = () => setPhotoPreview(reader.result);
         reader.readAsDataURL(file);
@@ -116,11 +122,11 @@ const StudentManagement = () => {
         const file = e.target.files[0];
         if (!file) return;
         if (!file.type.startsWith('image/')) {
-            toast('Please select an image file (JPG, PNG, etc.)', 'error');
+            showToast.warning('Please select an image file (JPG, PNG, etc.)');
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
-            toast('Image size should be less than 5MB', 'error');
+            showToast.warning('Image size should be less than 5MB');
             return;
         }
         setEditPhotoFile(file);
@@ -158,15 +164,15 @@ const StudentManagement = () => {
             const selectedParentObj = parents.find(p => p._id === formData.parentName);
 
             // STEP 1: Add student to DB
-            const response = await axios.post(`${API_BASE_URL}/api/admin/add-student`, {
-                    name: formData.studentName, class: formData.studentClass,
-                    parentName: selectedParentObj ? selectedParentObj.name : '',
-                    parent_id: formData.parentName, 
-                    email: formData.email.toLowerCase(),
-                    phone: formData.phone, rollNumber: formData.rollNumber
-                }, { headers: getAuthHeaders() });
+            const response = await apiRequest('post', API_ENDPOINTS.ADMIN_ADD_STUDENT, {
+                name: formData.studentName, class: formData.studentClass,
+                parentName: selectedParentObj ? selectedParentObj.name : '',
+                parent_id: formData.parentName, 
+                email: formData.email.toLowerCase(),
+                phone: formData.phone, rollNumber: formData.rollNumber
+            });
 
-            if (!response.data) throw new Error('Server error');
+            if (!response) throw new Error('Server error');
 
             // STEP 2: Register face in MongoDB GridFS (only if photo selected)
             if (photoFile) {
@@ -174,10 +180,9 @@ const StudentManagement = () => {
 
                 const base64Image = await fileToBase64(photoFile);
 
-                const faceResponse = await axios.post(API_ENDPOINTS.REGISTER_FACE, {
-                        name: formData.studentName, image: base64Image
-                    }, { headers: getAuthHeaders() });
-                const faceResult = faceResponse.data;
+                const faceResult = await apiRequest('post', API_ENDPOINTS.REGISTER_FACE, {
+                    name: formData.studentName, image: base64Image
+                });
 
                 if (faceResult.status === 'error') {
                     // Student add hua but face failed - warn user
@@ -223,23 +228,22 @@ const StudentManagement = () => {
         setIsEditSubmitting(true);
         try {
             // STEP 1: Student info update karo
-            const res = await axios.put(`${API_BASE_URL}/api/admin/edit-student/${editData.id}`, {
+            const res = await apiRequest('put', API_ENDPOINTS.ADMIN_EDIT_STUDENT(editData.id), {
                 name: editData.studentName, class: editData.studentClass,
                 parentName: selectedParentObj ? selectedParentObj.name : editData.parentName,
                 parent_id: editData.parentId, 
                 email: editData.email.toLowerCase(), 
                 phone: editData.phone
-            }, { headers: getAuthHeaders() });
+            });
 
-            if (!res.data) { toast('Update failed', 'error'); return; }
+            if (!res) { toast('Update failed', 'error'); return; }
 
             // STEP 2: Agar naya photo select hua hai toh face register karo
             if (editPhotoFile) {
                 const base64Image = await fileToBase64(editPhotoFile);
-                const faceResponse = await axios.post(API_ENDPOINTS.REGISTER_FACE, {
+                const faceResult = await apiRequest('post', API_ENDPOINTS.REGISTER_FACE, {
                     name: editData.studentName, image: base64Image
-                }, { headers: getAuthHeaders() });
-                const faceResult = faceResponse.data;
+                });
                 if (faceResult.status === 'error') {
                     toast(`Student updated! Face registration failed: ${faceResult.message}`, 'warning');
                 } else {
@@ -304,9 +308,9 @@ const StudentManagement = () => {
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">Student Management</h1>
                     <p className="text-text/60">View and manage students</p>
                 </div>
-                <Button variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
+                <ButtonLoading variant="primary" icon={Plus} onClick={() => setShowAddModal(true)}>
                     Add Student
-                </Button>
+                </ButtonLoading>
             </div>
 
             {/* Stats */}
@@ -505,20 +509,20 @@ const StudentManagement = () => {
                         )}
 
                         <div className="flex gap-3 mt-6">
-                            <Button
+                            <ButtonLoading
                                 variant="primary"
                                 className="flex-1"
                                 onClick={handleAddStudent}
-                                disabled={isSubmitting}>
-                                {isSubmitting ? getSubmitLabel() : 'Add Student'}
-                            </Button>
-                            <Button
+                                loading={isSubmitting}>
+                                Add Student
+                            </ButtonLoading>
+                            <ButtonLoading
                                 variant="outline"
                                 className="flex-1"
                                 onClick={resetAddForm}
                                 disabled={isSubmitting}>
                                 Cancel
-                            </Button>
+                            </ButtonLoading>
                         </div>
                     </div>
                 </Modal>
@@ -589,8 +593,8 @@ const StudentManagement = () => {
                             />
                         </div>
                         <div className="flex gap-3 mt-6">
-                            <Button variant="primary" className="flex-1" onClick={handleUpdateStudent}>Save Changes</Button>
-                            <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">Cancel</Button>
+                            <ButtonLoading variant="primary" className="flex-1" onClick={handleUpdateStudent} loading={isEditSubmitting}>Save Changes</ButtonLoading>
+                            <ButtonLoading variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">Cancel</ButtonLoading>
                         </div>
                     </div>
                 </Modal>

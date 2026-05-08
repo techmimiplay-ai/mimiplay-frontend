@@ -1,277 +1,248 @@
-import React, { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
-import { Card, PageLoader } from '../../../components/shared';
-import { CheckCircle, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-
-const LEVELS = [
-  { name: 'Little Star',  min: 0,   max: 49,        emoji: '⭐' },
-  { name: 'Bright Star',  min: 50,  max: 99,        emoji: '🌟' },
-  { name: 'Super Star',   min: 100, max: 199,       emoji: '💫' },
-  { name: 'Rising Star',  min: 200, max: 349,       emoji: '🚀' },
-  { name: 'Champion',     min: 350, max: 499,       emoji: '🏆' },
-  { name: 'Legend',       min: 500, max: Infinity,  emoji: '👑' },
-];
-
-function getLevel(stars)     { return LEVELS.find(l => stars >= l.min && stars <= l.max) || LEVELS[0]; }
-function getNextLevel(stars) {
-  const i = LEVELS.findIndex(l => stars >= l.min && stars <= l.max);
-  return LEVELS[i + 1] || null;
-}
-
-const SKILLS = [
-  { name: 'Alphabets',     unlocksAt: 0,   color: 'green'  },
-  { name: 'Common Fruits', unlocksAt: 0,   color: 'green'  },
-  { name: 'Colors',        unlocksAt: 10,  color: 'blue'   },
-  { name: 'Animals',       unlocksAt: 30,  color: 'purple' },
-  { name: 'Numbers',       unlocksAt: 50,  color: 'orange' },
-  { name: 'Phonics',       unlocksAt: 100, color: 'pink'   },
-];
-
-const barColor = {
-  green: 'bg-green-500', blue: 'bg-blue-500',
-  purple: 'bg-purple-500', orange: 'bg-orange-500', pink: 'bg-pink-500'
-};
+import { apiRequest } from '../../../utils/api';
+import { API_ENDPOINTS } from '../../../config';
+import { Card, SkeletonLoader, Badges, Levels, Skills } from '../../../components/shared';
+import ClassLeaderboard from '../ClassLeaderboard';
+import { TrendingUp, Award, BookOpen, Users } from 'lucide-react';
 
 const ProgressTab = ({ selectedChild }) => {
-
   const [starsData, setStarsData] = useState({
     total_stars: 0,
+    today_stars: 0,
+    today_count: 0,
     results: [],
   });
-  const [loading, setLoading] = useState(false);
-  const [levels, setLevels] = useState([]);
-  const [skills, setSkills] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // ── Fetch config ─────────────────────────────────────────────
   useEffect(() => {
-    fetchConfig();
-  }, []);
-
-  const fetchConfig = async () => {
-    try {
-      const [levelsRes, skillsRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/api/config/levels`),
-        axios.get(`${API_BASE_URL}/api/config/skills`)
-      ]);
-
-      if (levelsRes.data?.status === 'success') {
-        setLevels(levelsRes.data.levels);
-      }
-      if (skillsRes.data?.status === 'success') {
-        setSkills(skillsRes.data.skills);
-      }
-    } catch (err) {
-      console.error('Config fetch error:', err);
-      // Fallback to static data if API fails
-      setLevels([
-        { name: 'Little Star', min: 0, max: 49, emoji: '⭐' },
-        { name: 'Bright Star', min: 50, max: 99, emoji: '🌟' },
-        { name: 'Super Star', min: 100, max: 199, emoji: '💫' },
-        { name: 'Rising Star', min: 200, max: 349, emoji: '🚀' },
-        { name: 'Champion', min: 350, max: 499, emoji: '🏆' },
-        { name: 'Legend', min: 500, max: Infinity, emoji: '👑' },
-      ]);
-      setSkills([
-        { name: 'Alphabets', unlocksAt: 0, color: 'green' },
-        { name: 'Common Fruits', unlocksAt: 0, color: 'green' },
-        { name: 'Colors', unlocksAt: 10, color: 'blue' },
-        { name: 'Animals', unlocksAt: 30, color: 'purple' },
-        { name: 'Numbers', unlocksAt: 50, color: 'orange' },
-        { name: 'Phonics', unlocksAt: 100, color: 'pink' },
-      ]);
+    if (selectedChild?.id) {
+      fetchStarsData(selectedChild.id);
     }
-  };
-
-  useEffect(() => {
-    if (!selectedChild?.id) return;
-    fetchProgressData(selectedChild.id);
   }, [selectedChild?.id]);
 
-  const fetchProgressData = async (studentId) => {
+  const fetchStarsData = async (studentId) => {
     try {
-      setLoading(true);
-      const res = await axios.get(
-        `${API_BASE_URL}/api/parent/child-stars?student_id=${studentId}`
-      );
-      if (res.data?.status === 'success') {
-        setStarsData({
-          total_stars: res.data.total_stars,
-          results:     res.data.results,
-        });
+      const res = await apiRequest('get', API_ENDPOINTS.PARENT_CHILD_STARS(studentId));
+      if (res?.status === 'success') {
+        setStarsData(res);
       }
     } catch (err) {
-      console.error('Progress fetch error:', err);
+      console.error('Stars fetch error:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const totalStars = starsData.total_stars;
-  const results    = starsData.results;
-
-  const getLevel = (stars) => levels.find(l => stars >= l.min && stars <= l.max) || levels[0] || {};
-  const getNextLevel = (stars) => {
-    const i = levels.findIndex(l => stars >= l.min && stars <= l.max);
-    return levels[i + 1];
-  };
-
-  const level      = getLevel(totalStars);
-  const nextLevel  = getNextLevel(totalStars);
-  const progress   = nextLevel
-    ? Math.round(((totalStars - level.min) / (nextLevel.min - level.min)) * 100)
-    : 100;
-
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const today = new Date();
-  const weeklyData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today);
-    d.setDate(today.getDate() - (6 - i));
-    const dateStr = d.toISOString().split('T')[0];
-    const count = results.filter(r => r.date === dateStr).length;
-    return { day: i === 6 ? 'Today' : days[d.getDay()], activities: count };
-  });
-  const maxAct = Math.max(...weeklyData.map(d => d.activities), 1);
-
-  const skillsWithProgress = skills.map(s => ({
-    ...s,
-    unlocked: totalStars >= s.unlocksAt,
-    progress: totalStars >= s.unlocksAt
-      ? 100
-      : Math.min(99, Math.round((totalStars / (s.unlocksAt || 1)) * 100)),
-  }));
-
-  if (!selectedChild) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="text-5xl mb-3">📈</div>
-        <p className="text-text/60 font-semibold">No child selected</p>
-        <p className="text-sm text-text/40 mt-1">Please select a child from the top menu</p>
+  if (!selectedChild) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <div className="text-5xl mb-3">👶</div>
+          <p className="text-text/60 font-semibold">No child selected</p>
+          <p className="text-sm text-text/40 mt-1">Please select a child to view progress</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  if (loading) return <PageLoader variant="inline" emoji="📈" text="Loading progress…" />;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <SkeletonLoader className="h-40" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <SkeletonLoader key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: TrendingUp },
+    { id: 'badges', label: 'Badges', icon: Award },
+    { id: 'skills', label: 'Skills', icon: BookOpen },
+    { id: 'leaderboard', label: 'Leaderboard', icon: Users },
+  ];
+
+  const totalStars = starsData.total_stars;
+  const todayStars = starsData.today_stars;
+  const todayCount = starsData.today_count;
 
   return (
     <div className="space-y-6">
-
+      
+      {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-text mb-2">
-          {selectedChild.name}'s Progress 📈
+          📊 {selectedChild.name}'s Progress
         </h1>
-        <p className="text-text/60">Track skills and milestones</p>
+        <p className="text-text/60">Track learning achievements and growth</p>
       </div>
 
-      {/* Level Journey */}
-      <Card className="bg-gradient-to-r from-purple-400 to-pink-400 text-white border-0">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-          <div>
-            <p className="text-white/80 text-sm mb-1">Current Level</p>
-            <h2 className="text-2xl sm:text-3xl font-bold">{level.emoji} {level.name}</h2>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Award size={20} className="text-blue-700" />
+            <p className="text-sm text-blue-700 font-semibold">Total Stars</p>
           </div>
-          <div className="sm:text-right">
-            <p className="text-white/80 text-sm mb-1">Next Level</p>
-            <h3 className="text-lg sm:text-xl font-semibold">
-              {nextLevel ? `${nextLevel.emoji} ${nextLevel.name}` : '👑 Max Level!'}
-            </h3>
-          </div>
-        </div>
-        <div className="flex justify-between text-sm text-white/80 mb-1">
-          <span>{totalStars} ⭐</span>
-          <span>{nextLevel ? `${nextLevel.min - totalStars} more to unlock` : 'Legend!'}</span>
-        </div>
-        <div className="w-full bg-white/30 rounded-full h-4">
           <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
-            className="h-full bg-white rounded-full"
-          />
-        </div>
-        <p className="text-right text-white/80 text-sm mt-1">{progress}%</p>
-      </Card>
+            key={totalStars}
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+          >
+            <p className="text-3xl font-bold text-blue-900">{totalStars} ⭐</p>
+          </motion.div>
+        </Card>
 
-      {/* Total Stars */}
-      <Card className="text-center py-6">
-        <motion.div key={totalStars} initial={{ scale: 0.8 }} animate={{ scale: 1 }}
-          transition={{ type: 'spring' }}>
-          <div className="text-6xl mb-2">⭐</div>
-          <p className="text-5xl sm:text-6xl font-bold text-yellow-500">{totalStars}</p>
-          <p className="text-text/60 text-lg mt-1">Total Stars Earned</p>
-          <p className="text-text/40 text-sm">{results.length} activities completed</p>
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp size={20} className="text-green-700" />
+            <p className="text-sm text-green-700 font-semibold">Today</p>
+          </div>
+          <p className="text-3xl font-bold text-green-900">{todayStars} ⭐</p>
+          <p className="text-xs text-green-700 mt-1">{todayCount} activities</p>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+          <div className="flex items-center gap-2 mb-2">
+            <BookOpen size={20} className="text-purple-700" />
+            <p className="text-sm text-purple-700 font-semibold">Activities</p>
+          </div>
+          <p className="text-3xl font-bold text-purple-900">{starsData.results.length}</p>
+          <p className="text-xs text-purple-700 mt-1">Completed</p>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Users size={20} className="text-orange-700" />
+            <p className="text-sm text-orange-700 font-semibold">Avg Score</p>
+          </div>
+          <p className="text-3xl font-bold text-orange-900">
+            {starsData.results.length > 0 
+              ? (starsData.results.reduce((sum, r) => sum + r.stars, 0) / starsData.results.length).toFixed(1)
+              : '0.0'
+            }
+          </p>
+          <p className="text-xs text-orange-700 mt-1">out of 5.0</p>
+        </Card>
+      </div>
+
+      {/* Tab Navigation */}
+      <Card>
+        <div className="flex flex-wrap gap-2 mb-6">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-primary-500 text-white shadow-lg'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab Content */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {/* Level Progress */}
+              <Levels studentStars={totalStars} showTitle={true} />
+              
+              {/* Recent Activity */}
+              <div>
+                <h3 className="text-lg font-bold text-text mb-4">📈 Recent Activity</h3>
+                {starsData.results.slice(0, 5).length > 0 ? (
+                  <div className="space-y-3">
+                    {starsData.results.slice(0, 5).map((result, index) => (
+                      <motion.div
+                        key={result.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div>
+                          <h4 className="font-semibold text-text">{result.activityName}</h4>
+                          <p className="text-sm text-text/60">
+                            {new Date(result.timestamp).toLocaleDateString()} at{' '}
+                            {new Date(result.timestamp).toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg">
+                            {[...Array(5)].map((_, i) => (
+                              <span key={i}>{i < result.stars ? '⭐' : '☆'}</span>
+                            ))}
+                          </div>
+                          <p className="text-sm text-text/60">{result.score}%</p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-text/40">
+                    <div className="text-4xl mb-2">📚</div>
+                    <p>No activities completed yet</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'badges' && (
+            <Badges studentStars={totalStars} showTitle={false} />
+          )}
+
+          {activeTab === 'skills' && (
+            <Skills studentStars={totalStars} showTitle={false} />
+          )}
+
+          {activeTab === 'leaderboard' && (
+            <ClassLeaderboard childName={selectedChild.name} showTitle={false} />
+          )}
         </motion.div>
       </Card>
 
-      {/* Skills Progress */}
-      <Card>
-        <h2 className="text-xl sm:text-2xl font-bold text-text mb-4">Skills Progress</h2>
-        <div className="space-y-4">
-          {skillsWithProgress.map((skill, i) => (
-            <motion.div key={skill.name}
-              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.07 }}
-              className={`p-4 rounded-2xl border-2 ${
-                skill.unlocked ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'
-              }`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  {skill.unlocked
-                    ? <CheckCircle size={20} className="text-green-500 shrink-0" />
-                    : <Lock size={20} className="text-gray-400 shrink-0" />}
-                  <div>
-                    <h3 className="font-semibold text-text">{skill.name}</h3>
-                    <p className="text-xs text-text/50">
-                      {skill.unlocked
-                        ? 'Unlocked ✅'
-                        : `Needs ${skill.unlocksAt} ⭐ (${Math.max(0, skill.unlocksAt - totalStars)} more)`}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-sm font-bold shrink-0">
-                  {skill.unlocked ? '100%' : `${skill.progress}%`}
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${skill.progress}%` }}
-                  transition={{ duration: 0.6, delay: i * 0.07 }}
-                  className={`h-full rounded-full ${
-                    skill.unlocked ? barColor[skill.color] : 'bg-gray-400'
-                  }`}
-                />
-              </div>
-            </motion.div>
-          ))}
+      {/* Motivational Message */}
+      <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+        <div className="flex items-center gap-4">
+          <div className="text-4xl">🎯</div>
+          <div>
+            <h3 className="font-bold text-green-900">Keep Up the Great Work!</h3>
+            <p className="text-sm text-green-800">
+              {totalStars === 0 
+                ? `${selectedChild.name} is just getting started! Every star counts! 🌟`
+                : totalStars < 10 
+                ? `${selectedChild.name} is building momentum! ${10 - totalStars} more stars to reach 10! 🚀`
+                : totalStars < 50 
+                ? `${selectedChild.name} is doing amazing! ${50 - totalStars} more stars to reach 50! 🏆`
+                : `${selectedChild.name} is a learning superstar! Keep exploring and growing! 🌟`
+              }
+            </p>
+          </div>
         </div>
       </Card>
-
-      {/* Weekly Chart */}
-      <Card>
-        <h2 className="text-xl sm:text-2xl font-bold text-text mb-4">This Week's Activity</h2>
-        <div className="flex items-end justify-between gap-2 sm:gap-4 h-40 sm:h-48">
-          {weeklyData.map((day, i) => (
-            <div key={day.day} className="flex-1 flex flex-col items-center gap-2">
-              <motion.div
-                initial={{ height: 0 }}
-                animate={{ height: `${(day.activities / maxAct) * 100}%` }}
-                transition={{ duration: 0.5, delay: i * 0.07 }}
-                className="w-full bg-gradient-to-t from-primary-400 to-secondary-400 rounded-t-xl min-h-[8px] relative"
-              >
-                {day.activities > 0 && (
-                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs sm:text-sm font-bold text-text">
-                    {day.activities}
-                  </span>
-                )}
-              </motion.div>
-              <span className="text-xs font-semibold text-text">{day.day}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
     </div>
   );
 };

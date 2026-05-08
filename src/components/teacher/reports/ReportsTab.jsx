@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Card, PageLoader } from '../../../components/shared';
+import { Button, Card, PageLoader, ButtonLoading, FormLoading } from '../../../components/shared';
 import { Download, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
 import axios from 'axios';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const ReportsTab = () => {
   const [dateRange, setDateRange] = useState({
@@ -13,7 +16,6 @@ const ReportsTab = () => {
 
   const [filterActivity, setFilterActivity] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [toastMsg, setToastMsg] = useState('');
   const [classStats, setClassStats] = useState({
     avgScore: 0,
     totalActivities: 0,
@@ -29,17 +31,16 @@ const ReportsTab = () => {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      // ✅ Yahan fetch ki jagah axios use ho raha hai taaki main.jsx ka interceptor token bhej sake
-      const response = await axios.get(`${API_BASE_URL}/api/teacher/reports`, {
-        params: {
+      const data = await apiToast.operation(
+        () => apiRequest('get', API_ENDPOINTS.TEACHER_REPORTS, {
           start_date: dateRange.start,
           end_date: dateRange.end
-        },
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-
-      // Axios mein data direct response.data mein milta hai
-      const data = response.data;
+        }),
+        {
+          loading: 'Loading reports...',
+          error: 'Failed to load reports'
+        }
+      );
 
       if (data.status === 'success') {
         setClassStats(data.classStats);
@@ -50,9 +51,6 @@ const ReportsTab = () => {
       }
     } catch (err) {
       console.error('Error fetching reports:', err);
-      if (err.response && err.response.status === 401) {
-        console.error('Unauthorized: Token invalid ya expire ho gaya hai.');
-      }
     } finally {
       setLoading(false);
     }
@@ -62,11 +60,11 @@ const ReportsTab = () => {
     fetchReports();
   }, [dateRange]);
 
-  const showToast = (msg) => { setToastMsg(msg); setTimeout(() => setToastMsg(''), 3000); };
+
 
   const downloadReport = () => {
     if (!topPerformers.length && !activityBreakdown.length) {
-      setToastMsg('No report data to download yet.');
+      showToast.warning('No report data to download yet.');
       return;
     }
     const rows = [
@@ -84,18 +82,15 @@ const ReportsTab = () => {
     a.download = `class-report-${dateRange.start}-to-${dateRange.end}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+    showToast.success('Report downloaded successfully!');
   };
 
 
   if (loading) return <PageLoader variant="inline" emoji="📊" text="Loading reports…" />;
 
   return (
-    <div className="space-y-6">
-      {toastMsg && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-700 text-sm font-semibold">
-          ℹ️ {toastMsg}
-        </div>
-      )}
+    <FormLoading loading={loading}>
+      <div className="space-y-6">
 
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -104,9 +99,9 @@ const ReportsTab = () => {
           <p className="text-text/60">Track class performance and progress</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <Button variant="primary" icon={Download} onClick={downloadReport} className="w-full sm:w-auto">
+          <ButtonLoading variant="primary" icon={Download} onClick={downloadReport} className="w-full sm:w-auto">
             Download Report
-          </Button>
+          </ButtonLoading>
           <button onClick={fetchReports} className="text-sm text-primary-600 hover:underline font-semibold whitespace-nowrap">
             🔄 Refresh
           </button>
@@ -316,9 +311,9 @@ const ReportsTab = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <p className="text-xs md:text-sm text-red-700">Struggling with: <strong>{student.subject}</strong></p>
-                  <Button size="sm" variant="outline" className="w-full sm:w-auto">
+                  <ButtonLoading size="sm" variant="outline" className="w-full sm:w-auto">
                     View Details
-                  </Button>
+                  </ButtonLoading>
                 </div>
               </div>
             )) : (
@@ -330,7 +325,8 @@ const ReportsTab = () => {
           </div>
         </Card>
       </div>
-    </div>
+      </div>
+    </FormLoading>
   );
 };
 

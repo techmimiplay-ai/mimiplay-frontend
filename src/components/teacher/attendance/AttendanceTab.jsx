@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
-import { Button, Card, Modal, ConfirmModal } from '../../../components/shared';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
+import { Button, Card, Modal, ConfirmModal, ButtonLoading, FormLoading } from '../../../components/shared';
 import { Calendar, Download, CheckCircle, XCircle, Clock, MessageSquare, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const AttendanceTab = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -13,7 +16,8 @@ const AttendanceTab = () => {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [reviewText, setReviewText] = useState('');
-  const [saveMsg, setSaveMsg] = useState('');
+  const [existingReviewId, setExistingReviewId] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirm, setConfirm] = useState({ open: false, message: '', onConfirm: null });
   const confirmAction = (message, onConfirm) => setConfirm({ open: true, message, onConfirm });
@@ -24,13 +28,11 @@ const AttendanceTab = () => {
     try {
       setLoading(true);
       // ✅ Axios GET call with params
-      const res = await axios.get(`${API_BASE_URL}/api/teacher/attendance`, {
-        params: { date: date }
-      });
+      const res = await apiRequest('get', API_ENDPOINTS.TEACHER_ATTENDANCE, { date: date });
       
       // Axios automatically parses JSON, data is in res.data
-      if (res.data?.status === 'success') {
-        setAttendanceData(res.data.data || []);
+      if (res?.status === 'success') {
+        setAttendanceData(res.data || []);
       }
     } catch (err) {
       console.error('Attendance fetch error:', err);
@@ -79,7 +81,7 @@ const AttendanceTab = () => {
     try {
       setSaving(student.name);
       // ✅ Axios POST call (Interceptors will add token)
-      await axios.post(`${API_BASE_URL}/api/teacher/attendance/update`, {
+      await apiRequest('post', API_ENDPOINTS.TEACHER_ATTENDANCE_UPDATE, {
         name: student.name,
         status: nextStatus,
         date: selectedDate,
@@ -107,7 +109,7 @@ const AttendanceTab = () => {
         await Promise.all(
           attendanceData
             .filter(s => s.status !== 'present')
-            .map(s => axios.post(`${API_BASE_URL}/api/teacher/attendance/update`, {
+            .map(s => apiRequest('post', API_ENDPOINTS.TEACHER_ATTENDANCE_UPDATE, {
               name: s.name, status: 'present', date: selectedDate, student_id: s.studentId || s.id,
             }))
         );
@@ -138,27 +140,44 @@ const AttendanceTab = () => {
   };
 
   // ── Review ──────────────────────────────────────────────────
-  const handleAddReview = (student) => {
+  const handleAddReview = async (student) => {
     setSelectedStudent(student);
     setReviewText('');
+    setExistingReviewId(null);
+    setReviewLoading(true);
     setShowReviewModal(true);
+    try {
+      const res = await apiRequest('get', API_ENDPOINTS.TEACHER_GET_REVIEWS(student.studentId || student.id));
+      if (res?.status === 'success' && res.reviews?.length > 0) {
+        const latest = res.reviews[0];
+        setReviewText(latest.review);
+        setExistingReviewId(latest.id);
+      }
+    } catch (err) {
+      console.error('Fetch reviews error:', err);
+    } finally {
+      setReviewLoading(false);
+    }
   };
 
   const submitReview = async () => {
     if (!reviewText.trim()) return;
     try {
-      await axios.post(`${API_BASE_URL}/api/teacher/add-review`, {
-        student_id: selectedStudent.studentId || selectedStudent.id,
-        student_name: selectedStudent.name,
-        review: reviewText,
-        date: selectedDate,
-      });
+      if (existingReviewId) {
+        await apiRequest('put', API_ENDPOINTS.TEACHER_UPDATE_REVIEW(existingReviewId), { review: reviewText });
+      } else {
+        await apiRequest('post', API_ENDPOINTS.TEACHER_ADD_REVIEW, {
+          student_id: selectedStudent.studentId || selectedStudent.id,
+          student_name: selectedStudent.name,
+          review: reviewText,
+          date: selectedDate,
+        });
+      }
       setShowReviewModal(false);
       setReviewText('');
+      setExistingReviewId(null);
     } catch (err) {
       console.error('Review error:', err);
-      setSaveMsg(`❌ Could not save review: ${err.response?.data?.msg || err.message}`);
-      setTimeout(() => setSaveMsg(''), 3000);
     }
   };
 
@@ -171,16 +190,16 @@ const AttendanceTab = () => {
           <p className="text-text/60">Track and manage student attendance</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-          <Button variant="outline" icon={Download} onClick={exportAttendance} className="w-full sm:w-auto">
+          <ButtonLoading variant="outline" icon={Download} onClick={exportAttendance} className="w-full sm:w-auto">
             Export CSV
-          </Button>
-          <Button variant="outline" icon={RefreshCw}
+          </ButtonLoading>
+          <ButtonLoading variant="outline" icon={RefreshCw}
             onClick={() => setRefreshKey(k => k + 1)} className="w-full sm:w-auto">
             Refresh
-          </Button>
-          <Button variant="primary" onClick={markAllPresent} className="w-full sm:w-auto">
+          </ButtonLoading>
+          <ButtonLoading variant="primary" onClick={markAllPresent} className="w-full sm:w-auto">
             Mark All Present
-          </Button>
+          </ButtonLoading>
         </div>
       </div>
 
@@ -359,23 +378,34 @@ const AttendanceTab = () => {
 
       {/* Review Modal */}
       <Modal isOpen={showReviewModal} onClose={() => setShowReviewModal(false)}
-        title={`Add Review for ${selectedStudent?.name}`} size="md">
+        title={existingReviewId ? `Edit Review — ${selectedStudent?.name}` : `Add Review — ${selectedStudent?.name}`} size="md">
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-text mb-2">Review Notes</label>
-            <textarea value={reviewText} onChange={e => setReviewText(e.target.value)}
-              placeholder="Write your review or notes..."
-              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-400 resize-none"
-              rows="4" />
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button variant="primary" onClick={submitReview} className="flex-1 order-1 sm:order-2">
-              Submit Review
-            </Button>
-            <Button variant="outline" onClick={() => setShowReviewModal(false)} className="flex-1 order-2 sm:order-1">
-              Cancel
-            </Button>
-          </div>
+          {reviewLoading ? (
+            <div className="text-center py-6 text-text/50">Loading existing review…</div>
+          ) : (
+            <>
+              {existingReviewId && (
+                <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700 font-semibold">
+                  ✏️ Editing your most recent review for this student
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-semibold text-text mb-2">Review Notes</label>
+                <textarea value={reviewText} onChange={e => setReviewText(e.target.value)}
+                  placeholder="Write your review or notes..."
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-primary-400 resize-none"
+                  rows="4" />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="primary" onClick={submitReview} className="flex-1 order-1 sm:order-2">
+                  {existingReviewId ? 'Update Review' : 'Submit Review'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowReviewModal(false)} className="flex-1 order-2 sm:order-1">
+                  Cancel
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
 

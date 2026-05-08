@@ -23,7 +23,7 @@
 
 import { useRef, useCallback } from 'react';
 import axios from 'axios';
-import { API_ENDPOINTS } from '../../../../config';
+import { API_ENDPOINTS, getAuthHeaders } from '../../../../config';
 import LOG from '../logger';
 
 export function useSpeak(mountedRef) {
@@ -114,7 +114,9 @@ export function useSpeak(mountedRef) {
       }
 
       try {
-        const res = await axios.post(API_ENDPOINTS.SPEAK, { text });
+        const res = await axios.post(API_ENDPOINTS.SPEAK, { text }, {
+          headers: getAuthHeaders()
+        });
         LOG.info('Speak', 'API response received', {
           apiMs: Date.now() - t0,
           hasAudio: !!res.data?.audio,
@@ -150,7 +152,9 @@ export function useSpeak(mountedRef) {
     const t0 = Date.now();
     LOG.info('Prefetch', `Firing background TTS [${label}]`, { text: text.slice(0, 50) });
 
-    axios.post(API_ENDPOINTS.SPEAK, { text })
+    axios.post(API_ENDPOINTS.SPEAK, { text }, {
+      headers: getAuthHeaders()
+    })
       .then(res => {
         if (!mountedRef.current) return;
         if (res.data?.audio) {

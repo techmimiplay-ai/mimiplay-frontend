@@ -1,130 +1,142 @@
 // src/context/StarContext.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// GLOBAL STAR STORE — live across Teacher + Parent portals
+// SECURE STAR STORE — backend-based with real-time sync
 //
-// TWO sync mechanisms:
-//  1. window 'storage' event  → fires instantly when a DIFFERENT browser tab
-//     writes to localStorage (teacher tab → parent tab auto-updates)
-//  2. setInterval poll every 2s → catches same-app navigation edge cases
-//     where the storage event doesn't fire (same-origin same-tab)
-//
-// Stars are saved to localStorage so they survive page refresh.
+// Replaces localStorage with secure backend API calls to prevent manipulation.
+// Stars are stored in MongoDB and fetched from /get-student-stars endpoint.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-
-const STORAGE_KEY = 'alexi_star_results';
-
-function load() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
-}
-
-function save(data) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
-}
+import { apiRequest } from '../utils/api';
+import { API_ENDPOINTS } from '../config';
 
 const StarContext = createContext(null);
 
 export function StarProvider({ children }) {
-  const [results, setResults] = useState(load);
+  const [studentStars, setStudentStars] = useState({}); // Cache by student_id
+  const [loading, setLoading] = useState(false);
 
-  // ── Sync mechanism 1: cross-tab via storage event ─────────────────────────
-  // When teacher tab writes stars, browser fires 'storage' on all OTHER tabs.
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === STORAGE_KEY) {
-        setResults(load());
+  /** Fetch stars for a specific student from backend */
+  const fetchStudentStars = useCallback(async (studentId) => {
+    if (!studentId || studentStars[studentId]) return studentStars[studentId];
+    
+    try {
+      setLoading(true);
+      const response = await apiRequest('get', API_ENDPOINTS.PARENT_CHILD_STARS(studentId));
+      
+      if (response.error) {
+        console.error('Failed to fetch student stars:', response.error);
+        return null;
       }
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+      
+      // Cache the result
+      setStudentStars(prev => ({
+        ...prev,
+        [studentId]: response
+      }));
+      
+      return response;
+    } catch (error) {
+      console.error('Error fetching student stars:', error);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [studentStars]);
+
+  /** Save activity result to backend and update cache */
+  const addActivityResult = useCallback(async ({ studentId, studentName, activityId, activityName, stars, score }) => {
+    if (!studentId) {
+      console.error('Student ID is required to save activity result');
+      return false;
+    }
+
+    try {
+      const response = await apiRequest('post', API_ENDPOINTS.ACTIVITY_SAVE_RESULT, {
+          student_id: studentId,
+          student_name: studentName,
+          activity_id: activityId,
+          activity_name: activityName,
+          stars: Math.min(5, Math.max(0, stars ?? 0)),
+          score: score ?? 0
+        });
+
+      if (response.status === 'success') {
+        // Invalidate cache for this student to force refresh
+        setStudentStars(prev => {
+          const updated = { ...prev };
+          delete updated[studentId];
+          return updated;
+        });
+        
+        // Fetch fresh data
+        await fetchStudentStars(studentId);
+        return true;
+      } else {
+        console.error('Failed to save activity result:', response.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error saving activity result:', error);
+      return false;
+    }
+  }, [fetchStudentStars]);
+
+  /** Get all results for one student */
+  const getStudentResults = useCallback(async (studentId) => {
+    const data = await fetchStudentStars(studentId);
+    return data?.results || [];
+  }, [fetchStudentStars]);
+
+  /** Get total stars for a student */
+  const getTotalStars = useCallback(async (studentId) => {
+    const data = await fetchStudentStars(studentId);
+    return data?.total_stars || 0;
+  }, [fetchStudentStars]);
+
+  /** Get today's stars for a student */
+  const getTodayStars = useCallback(async (studentId) => {
+    const data = await fetchStudentStars(studentId);
+    return data?.today_stars || 0;
+  }, [fetchStudentStars]);
+
+  /** Get today's activity count for a student */
+  const getTodayActivities = useCallback(async (studentId) => {
+    const data = await fetchStudentStars(studentId);
+    return data?.today_activities || 0;
+  }, [fetchStudentStars]);
+
+  /** Clear cache (for testing/refresh) */
+  const clearCache = useCallback(() => {
+    setStudentStars({});
   }, []);
 
-  // ── Sync mechanism 2: poll every 2 seconds ────────────────────────────────
-  // Catches cases where parent portal is on the same tab/app instance
-  // and the storage event doesn't fire. Also acts as a safety net.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const fresh = load();
-      setResults(prev => {
-        // Only update if data actually changed (compare lengths + latest id)
-        if (fresh.length !== prev.length) return fresh;
-        if (fresh.length > 0 && prev.length > 0 && fresh[0].id !== prev[0].id) return fresh;
-        return prev; // no change, don't re-render
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  /** Called by ActivitiesTab when a student finishes an activity */
-  const addActivityResult = useCallback(({ studentId, studentName, activityId, activityName, stars, score }) => {
-    const entry = {
-      id:           Date.now(),
-      studentId:    studentId    ?? null,
-      studentName:  studentName  ?? '',
-      activityId:   activityId   ?? 0,
-      activityName: activityName ?? 'Activity',
-      stars:        Math.min(5, Math.max(0, stars ?? 0)),
-      score:        score ?? 0,
-      timestamp:    new Date().toISOString(),
-      date:         new Date().toDateString(),
-    };
-    setResults(prev => {
-      const updated = [entry, ...prev];
-      save(updated);
+  /** Refresh data for a specific student */
+  const refreshStudent = useCallback(async (studentId) => {
+    setStudentStars(prev => {
+      const updated = { ...prev };
+      delete updated[studentId];
       return updated;
     });
-  }, []);
-
-  /** All results for one student (newest first) */
-  const getStudentResults = useCallback((studentId) =>
-    results.filter(r => r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase()),
-  [results]);
-
-  /** Total stars ever earned by a student */
-  const getTotalStars = useCallback((studentId) =>
-    results
-      .filter(r => r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase())
-      .reduce((s, r) => s + r.stars, 0),
-  [results]);
-
-  /** Stars earned today by a student */
-  const getTodayStars = useCallback((studentId) => {
-    const today = new Date().toDateString();
-    return results
-      .filter(r =>
-        (r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase())
-        && r.date === today
-      )
-      .reduce((s, r) => s + r.stars, 0);
-  }, [results]);
-
-  /** Number of activities completed today */
-  const getTodayActivities = useCallback((studentId) => {
-    const today = new Date().toDateString();
-    return results.filter(r =>
-      (r.studentId === studentId || r.studentName?.toLowerCase() === studentId?.toLowerCase())
-      && r.date === today
-    ).length;
-  }, [results]);
-
-  /** Clear everything (for testing) */
-  const clearAll = useCallback(() => {
-    setResults([]);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    return await fetchStudentStars(studentId);
+  }, [fetchStudentStars]);
 
   return (
     <StarContext.Provider value={{
-      results,
+      // Data
+      studentStars,
+      loading,
+      
+      // Actions
       addActivityResult,
+      fetchStudentStars,
+      refreshStudent,
+      clearCache,
+      
+      // Getters (now async)
       getStudentResults,
       getTotalStars,
       getTodayStars,
       getTodayActivities,
-      clearAll,
     }}>
       {children}
     </StarContext.Provider>

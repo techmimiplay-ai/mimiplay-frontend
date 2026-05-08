@@ -28,10 +28,11 @@ const Button = ({
   };
   
   const sizes = {
-    sm: "px-4 py-2 text-sm",
-    md: "px-6 py-3 text-base",
-    lg: "px-8 py-4 text-lg",
-    xl: "px-10 py-5 text-xl",
+    sm: "px-4 py-2 text-sm tv:px-6 tv:py-3 tv:text-tv-sm",
+    md: "px-6 py-3 text-base tv:px-8 tv:py-4 tv:text-tv-base",
+    lg: "px-8 py-4 text-lg tv:px-12 tv:py-6 tv:text-tv-lg",
+    xl: "px-10 py-5 text-xl tv:px-16 tv:py-8 tv:text-tv-xl",
+    tv: "px-12 py-6 text-tv-base tv:px-20 tv:py-10 tv:text-tv-2xl", // TV-optimized size
   };
   
   const variantClass = variants[variant] || variants.primary;

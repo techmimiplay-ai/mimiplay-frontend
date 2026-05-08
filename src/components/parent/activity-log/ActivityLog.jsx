@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
 import { Card, Button, PageLoader, EmptyState } from '../../../components/shared';
 import { Calendar, Filter, Download, BookOpen, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -51,8 +52,8 @@ const ActivityLog = ({ selectedChild }) => {
   const fetchActivityLog = async (studentId) => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/api/parent/child-stars?student_id=${studentId}`);
-      if (res.data?.status === 'success') setAllResults(res.data.results || []);
+      const res = await apiRequest('get', API_ENDPOINTS.PARENT_CHILD_STARS(studentId));
+      if (res?.status === 'success') setAllResults(res.results || []);
     } catch (err) {
       console.error('Activity log fetch error:', err);
     } finally {

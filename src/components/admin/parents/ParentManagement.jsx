@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal } from '../../../components/shared';
+import { Card, Button, Input, Modal, Avatar, PageLoader, ConfirmModal, ButtonLoading, FormLoading } from '../../../components/shared';
 import { Search, CheckCircle, XCircle, Eye, Mail, Phone, User } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { API_BASE_URL } from '../../../config';
+import { API_ENDPOINTS } from '../../../config';
+import { apiRequest } from '../../../utils/api';
 import axios from 'axios';
-
-import { useToast } from '../../../context/ToastContext';
+import { handleError } from '../../../utils/errorHandler';
+import { showToast, apiToast } from '../../../utils/toast';
 
 const ParentManagement = () => {
-  const toast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
@@ -25,9 +25,15 @@ const ParentManagement = () => {
   const closeConfirm = () => setConfirm({ open: false, message: '', onConfirm: null });
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/admin/all-users`)
-      .then(res => {
-        const data = res.data;
+    const fetchData = async () => {
+      try {
+        const data = await apiToast.operation(
+          () => apiRequest('get', API_ENDPOINTS.ADMIN_ALL_USERS),
+          {
+            loading: 'Loading parents...',
+            error: 'Failed to load parents'
+          }
+        );
         const parentsOnly = data.filter(user => user.role === "parent");
         const formatted = parentsOnly.map(user => ({
           id: user._id,
@@ -42,9 +48,13 @@ const ParentManagement = () => {
             : "N/A"
         }));
         setParents(formatted);
-      })
-      .catch(err => console.error("Parents fetch error", err))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Parents fetch error", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -54,11 +64,15 @@ const ParentManagement = () => {
   }, [selectedParent]);
 
   useEffect(() => {
-    axios.get(`${API_BASE_URL}/api/admin/all-students`)
-      .then(res => {
-        setStudents(res.data);
-      })
-      .catch(err => console.error("Student fetch error", err));
+    const fetchStudents = async () => {
+      try {
+        const data = await apiRequest('get', API_ENDPOINTS.ADMIN_ALL_STUDENTS);
+        setStudents(data);
+      } catch (err) {
+        console.error("Student fetch error", err);
+      }
+    };
+    fetchStudents();
   }, []);
 
   const filteredParents = parents.filter(parent => {
@@ -78,24 +92,36 @@ const ParentManagement = () => {
 
   const handleApprove = async (parent) => {
     try {
-      await axios.put(`${API_BASE_URL}/api/admin/approve/${parent.id}`);
+      await apiToast.operation(
+        () => apiRequest('put', API_ENDPOINTS.ADMIN_APPROVE_USER(parent.id)),
+        {
+          loading: `Approving ${parent.name}...`,
+          success: `${parent.name} approved successfully!`,
+          error: 'Failed to approve parent'
+        }
+      );
       setParents(prev => prev.map(p => p.id === parent.id ? { ...p, status: 'active' } : p));
       setShowApprovalModal(false);
     } catch (err) {
       console.error('Approve error:', err);
-      toast('Failed to approve. Please try again.', 'error');
     }
   };
 
   const handleReject = async (parent) => {
     confirmAction(`Reject ${parent.name}?`, async () => {
       try {
-        await axios.delete(`${API_BASE_URL}/api/admin/reject/${parent.id}`);
+        await apiToast.operation(
+          () => apiRequest('delete', API_ENDPOINTS.ADMIN_REJECT_USER(parent.id)),
+          {
+            loading: `Rejecting ${parent.name}...`,
+            success: `${parent.name} rejected successfully`,
+            error: 'Failed to reject parent'
+          }
+        );
         setParents(prev => prev.filter(p => p.id !== parent.id));
         setShowApprovalModal(false);
       } catch (err) {
         console.error('Reject error:', err);
-        toast('Failed to reject. Please try again.', 'error');
       } finally {
         closeConfirm();
       }
@@ -105,16 +131,18 @@ const ParentManagement = () => {
   const handleUpdateParent = async () => {
     try {
       const payload = { ...editForm, email: editForm.email?.toLowerCase() };
-      const res = await axios.put(
-        `${API_BASE_URL}/api/admin/edit-parent/${editForm.id}`,
-        payload
+      await apiToast.operation(
+        () => apiRequest('put', API_ENDPOINTS.ADMIN_EDIT_PARENT(editForm.id), payload),
+        {
+          loading: 'Updating parent...',
+          success: 'Parent updated successfully!',
+          error: 'Failed to update parent'
+        }
       );
-      toast(res.data.msg || 'Parent updated successfully', 'success');
       setShowEditModal(false);
       setParents(prev => prev.map(p => p.id === editForm.id ? { ...p, ...editForm } : p));
     } catch (err) {
       console.error(err);
-      toast('Update failed', 'error');
     }
   };
 
@@ -319,8 +347,8 @@ const ParentManagement = () => {
             </div>
             {selectedParent.status === 'pending' && (
               <div className="flex gap-3 mt-6">
-                <Button variant="primary" icon={CheckCircle} onClick={() => handleApprove(selectedParent)} className="flex-1">Approve</Button>
-                <Button variant="outline" icon={XCircle} onClick={() => handleReject(selectedParent)} className="flex-1">Reject</Button>
+                <ButtonLoading variant="primary" icon={CheckCircle} onClick={() => handleApprove(selectedParent)} className="flex-1">Approve</ButtonLoading>
+                <ButtonLoading variant="outline" icon={XCircle} onClick={() => handleReject(selectedParent)} className="flex-1">Reject</ButtonLoading>
               </div>
             )}
           </div>
@@ -367,7 +395,7 @@ const ParentManagement = () => {
               <option value="active">Active</option>
               <option value="pending">Pending</option>
             </select>
-            <Button variant="primary" className="w-full" onClick={handleUpdateParent}>Save Changes</Button>
+            <ButtonLoading variant="primary" className="w-full" onClick={handleUpdateParent}>Save Changes</ButtonLoading>
           </div>
         </Modal>
       )}

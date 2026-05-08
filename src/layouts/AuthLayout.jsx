@@ -4,7 +4,10 @@ import { FloatingElements } from '../components/shared';
 
 const AuthLayout = ({ children, title, subtitle }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 flex items-center justify-center p-4 relative overflow-hidden">
+    <div
+      className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
+      style={{ backgroundImage: "url('/backgrounds/login_register_bg.png')", backgroundSize: 'cover', backgroundPosition: 'center' }}
+    >
       
       {/* Floating background elements */}
       <FloatingElements density="normal" />
