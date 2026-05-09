@@ -333,6 +333,15 @@ const MimiChat = () => {
     await startWebcam()
     facePollingRef.current = setInterval(async () => {
       if (!videoRef.current?.srcObject || !canvasRef.current) return
+      
+      const video = videoRef.current
+      const canvas = canvasRef.current
+      canvas.width = video.videoWidth || 640
+      canvas.height = video.videoHeight || 480
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1]
+
       // Abort previous in-flight request before sending a new one
       if (faceAbortRef.current) faceAbortRef.current.abort()
       faceAbortRef.current = new AbortController()
